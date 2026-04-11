@@ -1,0 +1,13 @@
+{
+  "name": "tokei",
+  "version": "0.0.1",
+  "private": true,
+  "description": "AI token usage ambient display",
+  "scripts": {
+    "lint": "pnpm --filter worker lint",
+    "test": "pnpm --filter worker test",
+    "build": "pnpm --filter worker build",
+    "deploy:worker": "pnpm --filter worker deploy"
+  },
+  "packageManager": "pnpm@9.12.0"
+}

@@ -1,0 +1,33 @@
+# deps
+node_modules/
+.pnpm-store/
+
+# build
+dist/
+build/
+*.tsbuildinfo
+
+# cloudflare
+.wrangler/
+.dev.vars
+.env*
+!.env.example
+
+# python (for future collector)
+.venv/
+__pycache__/
+*.pyc
+
+# firmware (for future)
+.pio/
+.vscode/
+
+# editor
+.idea/
+.DS_Store
+
+# test output
+coverage/
+
+# local tokei state
+.superpowers/
