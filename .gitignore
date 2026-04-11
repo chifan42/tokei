@@ -35,3 +35,6 @@ coverage/
 # cursor agent run artifacts
 .agent-prompt.txt
 .agent-run.log
+
+# firmware secrets
+firmware/include/config.h

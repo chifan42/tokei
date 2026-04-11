@@ -1,0 +1,16 @@
+// Copy this file to config.h and fill in your values.
+// config.h is gitignored so secrets do not leak.
+#pragma once
+
+// Worker endpoint. Include the https:// prefix.
+#define TOKEI_WORKER_URL "https://tokei-worker.chifan.workers.dev"
+
+// Bearer token that matches the worker's TOKEI_BEARER_TOKEN secret.
+#define TOKEI_BEARER_TOKEN "put-your-token-here"
+
+// How often to pull /v1/summary (milliseconds). Default 1 hour.
+#define TOKEI_POLL_INTERVAL_MS (60UL * 60UL * 1000UL)
+
+// NTP server for RTC sync.
+#define TOKEI_NTP_SERVER "pool.ntp.org"
+#define TOKEI_NTP_TZ "CST-8"  // Asia/Shanghai UTC+8
