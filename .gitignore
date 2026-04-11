@@ -31,3 +31,7 @@ coverage/
 
 # local tokei state
 .superpowers/
+
+# cursor agent run artifacts
+.agent-prompt.txt
+.agent-run.log
