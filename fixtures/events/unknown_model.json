@@ -1,0 +1,11 @@
+{
+  "tool": "claude_code",
+  "event_uuid": "future-model-evt-1",
+  "ts": 1744370400,
+  "model": "claude-ultra-9000",
+  "input_tokens": 1000,
+  "cached_input_tokens": 0,
+  "output_tokens": 500,
+  "cache_creation_tokens": 0,
+  "reasoning_output_tokens": 0
+}

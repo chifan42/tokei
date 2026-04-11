@@ -1,0 +1,11 @@
+{
+  "tool": "codex",
+  "event_uuid": "019cdd8f-0ce7-71a0-80c7-af6dc1fe1794",
+  "ts": 1744370200,
+  "model": "gpt-5",
+  "input_tokens": 13085,
+  "cached_input_tokens": 6528,
+  "output_tokens": 394,
+  "cache_creation_tokens": 0,
+  "reasoning_output_tokens": 247
+}

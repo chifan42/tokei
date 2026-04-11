@@ -1,0 +1,11 @@
+{
+  "tool": "cursor",
+  "event_uuid": "28917e15-1a4b-4463-b214-c40f456d2fcb",
+  "ts": 1744370250,
+  "model": null,
+  "input_tokens": 27909,
+  "cached_input_tokens": 0,
+  "output_tokens": 9129,
+  "cache_creation_tokens": 0,
+  "reasoning_output_tokens": 0
+}

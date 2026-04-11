@@ -1,0 +1,11 @@
+{
+  "tool": "claude_code",
+  "event_uuid": "019b74c1-e87e-7ef2-91b3-f18518d58cce",
+  "ts": 1744370123,
+  "model": "claude-sonnet-4-5",
+  "input_tokens": 8421,
+  "cached_input_tokens": 5200,
+  "output_tokens": 342,
+  "cache_creation_tokens": 0,
+  "reasoning_output_tokens": 0
+}

@@ -1,0 +1,11 @@
+{
+  "tool": "gemini",
+  "event_uuid": "gemini-session-1-msg-42",
+  "ts": 1744370300,
+  "model": "gemini-2.5-pro",
+  "input_tokens": 5000,
+  "cached_input_tokens": 1000,
+  "output_tokens": 800,
+  "cache_creation_tokens": 0,
+  "reasoning_output_tokens": 120
+}
