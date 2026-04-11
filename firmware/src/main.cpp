@@ -1,3 +1,4 @@
+#ifndef UNIT_TEST
 #include <Arduino.h>
 #include <lvgl.h>
 #include "lvgl_setup.h"
@@ -23,3 +24,4 @@ void loop() {
     lvgl_setup_tick();
     delay(5);
 }
+#endif  // UNIT_TEST

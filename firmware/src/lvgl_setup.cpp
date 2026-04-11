@@ -1,3 +1,4 @@
+#ifndef UNIT_TEST
 #include "lvgl_setup.h"
 #include <Arduino.h>
 #include "display_bsp.h"
@@ -28,3 +29,4 @@ void lvgl_setup_tick() {
     // so we just need to acquire the lock when modifying LVGL objects.
     // No-op here; callers use Lvgl_lock()/Lvgl_unlock() around UI updates.
 }
+#endif  // UNIT_TEST
