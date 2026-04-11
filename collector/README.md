@@ -31,3 +31,23 @@ outfile = "~/.gemini/telemetry.log"
 
 - **macOS:** `uv run tokei-collect install --launchd`
 - **Linux:** `uv run tokei-collect install --systemd`
+
+## Smoke test against deployed worker
+
+```bash
+# Ensure config exists
+uv run tokei-collect init
+
+# Check state
+uv run tokei-collect doctor
+
+# Run once (will scan ~/.claude/projects and upload)
+uv run tokei-collect run
+
+# Verify on worker side
+curl -s -H "Authorization: Bearer $TOKEI_TOKEN" \
+    https://tokei-worker.chifan.workers.dev/v1/summary \
+    | python3 -m json.tool
+```
+
+If `today.total_tokens > 0`, the full pipeline works.
