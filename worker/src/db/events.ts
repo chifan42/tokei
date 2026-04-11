@@ -7,10 +7,14 @@ import type { EventInput } from '../contract'
 export type InsertResult = { accepted: number; deduped: number }
 export type Db = ReturnType<typeof drizzle>
 
+// D1 caps bound parameters per statement at 100. The events table has 12
+// fields per row, so 7 rows per INSERT keeps us at 84 params (safe margin).
+// The countExisting query uses raw SQL literals so it can take a larger chunk.
+const INSERT_CHUNK = 7
+const COUNT_CHUNK = 100
+
 export async function insertEvents(db: Db, deviceId: string, batch: EventInput[]): Promise<InsertResult> {
   if (batch.length === 0) return { accepted: 0, deduped: 0 }
-
-  const before = await countExisting(db, deviceId, batch)
 
   // Price each row at insert time. Prices are cached by model to avoid repeat lookups.
   const priceCache = new Map<string, Awaited<ReturnType<typeof getPriceWithFallback>>>()
@@ -39,14 +43,22 @@ export async function insertEvents(db: Db, deviceId: string, batch: EventInput[]
     }),
   )
 
-  await db.insert(events).values(rows).onConflictDoNothing().run()
+  let totalExisting = 0
+  for (let i = 0; i < batch.length; i += COUNT_CHUNK) {
+    totalExisting += await countExistingChunk(db, deviceId, batch.slice(i, i + COUNT_CHUNK))
+  }
 
-  const accepted = batch.length - before
-  return { accepted, deduped: before }
+  for (let i = 0; i < rows.length; i += INSERT_CHUNK) {
+    await db.insert(events).values(rows.slice(i, i + INSERT_CHUNK)).onConflictDoNothing().run()
+  }
+
+  const accepted = batch.length - totalExisting
+  return { accepted, deduped: totalExisting }
 }
 
-async function countExisting(db: Db, deviceId: string, batch: EventInput[]): Promise<number> {
-  const tuples = batch.map((e) => `('${escapeSql(e.tool)}', '${escapeSql(e.event_uuid)}')`).join(',')
+async function countExistingChunk(db: Db, deviceId: string, chunk: EventInput[]): Promise<number> {
+  if (chunk.length === 0) return 0
+  const tuples = chunk.map((e) => `('${escapeSql(e.tool)}', '${escapeSql(e.event_uuid)}')`).join(',')
   const query = sql.raw(
     `SELECT COUNT(*) as n FROM events WHERE device_id = '${escapeSql(deviceId)}' AND (tool, event_uuid) IN (${tuples})`,
   )
