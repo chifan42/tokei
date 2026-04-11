@@ -12,12 +12,14 @@ export type IngestDeps = {
   now: number
 }
 
-const MAX_SKEW_SEC = 86400
+const MAX_FUTURE_SKEW_SEC = 86400
 
 export async function ingestHandler(input: IngestInput, deps: IngestDeps) {
+  // Only guard against events from the future (indicates a broken device clock).
+  // Events from the past are valid backfill and are always accepted.
   for (const e of input.events) {
-    if (Math.abs(e.ts - deps.now) > MAX_SKEW_SEC) {
-      throw new Error(`CLOCK_SKEW: event ts ${e.ts} differs from server now ${deps.now} by > 1 day`)
+    if (e.ts - deps.now > MAX_FUTURE_SKEW_SEC) {
+      throw new Error(`CLOCK_SKEW: event ts ${e.ts} is > 1 day in the future (server now ${deps.now})`)
     }
   }
   return insertEvents(deps.db, input.device_id, input.events)
