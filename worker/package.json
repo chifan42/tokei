@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "wrangler dev",
-    "deploy": "wrangler deploy",
+    "ship": "wrangler deploy",
     "build": "tsc --noEmit",
     "lint": "oxlint src test",
     "test": "vitest run",
@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@orpc/contract": "^0.54.0",
+    "@orpc/openapi": "^0.54.0",
     "@orpc/server": "^0.54.0",
     "drizzle-orm": "^0.36.4",
     "zod": "^3.23.8"

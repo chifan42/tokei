@@ -13,6 +13,9 @@ importers:
       '@orpc/contract':
         specifier: ^0.54.0
         version: 0.54.0
+      '@orpc/openapi':
+        specifier: ^0.54.0
+        version: 0.54.0
       '@orpc/server':
         specifier: ^0.54.0
         version: 0.54.0
@@ -823,6 +826,12 @@ packages:
   '@orpc/contract@0.54.0':
     resolution: {integrity: sha512-NCH5P7AyaxBfp/MITAYF5nr8kp9EPHVA9JAMzxqHAYsvi4WTldPVlwUrEchYo10FFZkrV85OhMcRe30kdwp+aQ==}
 
+  '@orpc/openapi-client@0.54.0':
+    resolution: {integrity: sha512-worLN+XFnZoUeUoc9tqG+9WC+Q2qmUVekCpY3B0dYK2r0IiGzkzJPkxxNUzn6e6RQ+kSJ3w/l/S5R1xLWy1lcA==}
+
+  '@orpc/openapi@0.54.0':
+    resolution: {integrity: sha512-7cHXFiV4nlEWZpVw/6p4qaQP18qw9+WGu3gl1IGpD+esxR93JhLcgrkigXbzMjzx85+9Pfhce1gzn1dx6z1pGA==}
+
   '@orpc/server@0.54.0':
     resolution: {integrity: sha512-5HFV6AX+3aZFohZmWk+4tTFFkY6X3iwwlubbDv2Dazgw3dzCnlywIU2SkUdGJOeYkqRwpKXy9YamLbzEB3AYBA==}
 
@@ -1326,6 +1335,9 @@ packages:
   itty-time@1.0.6:
     resolution: {integrity: sha512-+P8IZaLLBtFv8hCkIjcymZOp4UJ+xW6bSlQsXGqrkmJh7vSiMFSlNne0mCYagEE0N7HDNR5jJBRxwN0oYv61Rw==}
 
+  json-schema-typed@8.0.2:
+    resolution: {integrity: sha512-fQhoXdcvc3V28x7C7BMs4P5+kNlgUURe2jmUT1T//oBRMDrqy1QPelJimwZGo7Hg9VPV3EQV5Bnq4hbFy2vetA==}
+
   loupe@3.2.1:
     resolution: {integrity: sha512-CdzqowRJCeLU72bHvWqwRBBlLcMEtIvGrlvef74kMnV2AolS9Y8xUv1I0U/MNAWMhBlKIoyuEgoJ0t/bbwHbLQ==}
 
@@ -1374,6 +1386,9 @@ packages:
 
   ohash@2.0.11:
     resolution: {integrity: sha512-RdR9FQrFwNBNXAr4GixM8YaRZRJ5PUWbKYbE5eOsrwAjJW0q2REGcf79oYPsLyskQCZG1PLN+S/K1V00joZAoQ==}
+
+  openapi-types@12.1.3:
+    resolution: {integrity: sha512-N4YtSYJqghVu4iek2ZUvcN/0aqH1kRDuNqzcycDxhOUpg7GdvLa2F3DgS6yBNhInhv2r/6I0Flkn7CqL8+nIcw==}
 
   oxlint@0.13.2:
     resolution: {integrity: sha512-R7wXUspM75TeEXaAFLmuPH0W3h5B5r6BNtOvkcnVddD3BWbBiEOWe9bCqt4+te0l8wQ4a0/XLCGrJroxFFeajg==}
@@ -1439,6 +1454,9 @@ packages:
     resolution: {integrity: sha512-VmtB2rFU/GroZ4oL8+ZqXgSA38O6GR8KSIvWmEFv63pQ0G6KaBH9s07PO8XTXP4vI+3UJUEypOfjkGfmSBBR0w==}
     engines: {node: '>=18.0.0', npm: '>=8.0.0'}
     hasBin: true
+
+  rou3@0.5.1:
+    resolution: {integrity: sha512-OXMmJ3zRk2xeXFGfA3K+EOPHC5u7RDFG7lIOx0X1pdnhUkI8MdVrbV+sNsD80ElpUZ+MRHdyxPnFthq9VHs8uQ==}
 
   selfsigned@2.4.1:
     resolution: {integrity: sha512-th5B4L2U+eGLq1TVh7zNRGBapioSORUeymIydxgFpwww9d2qyKvtuPU2jJuHvYAwwqi2Y596QBL3eEqcPEYL8Q==}
@@ -2132,6 +2150,25 @@ snapshots:
       '@orpc/shared': 0.54.0
       '@standard-schema/spec': 1.1.0
 
+  '@orpc/openapi-client@0.54.0':
+    dependencies:
+      '@orpc/client': 0.54.0
+      '@orpc/contract': 0.54.0
+      '@orpc/shared': 0.54.0
+      '@orpc/standard-server': 0.54.0
+
+  '@orpc/openapi@0.54.0':
+    dependencies:
+      '@orpc/client': 0.54.0
+      '@orpc/contract': 0.54.0
+      '@orpc/openapi-client': 0.54.0
+      '@orpc/server': 0.54.0
+      '@orpc/shared': 0.54.0
+      '@orpc/standard-server': 0.54.0
+      json-schema-typed: 8.0.2
+      openapi-types: 12.1.3
+      rou3: 0.5.1
+
   '@orpc/server@0.54.0':
     dependencies:
       '@orpc/client': 0.54.0
@@ -2566,6 +2603,8 @@ snapshots:
 
   itty-time@1.0.6: {}
 
+  json-schema-typed@8.0.2: {}
+
   loupe@3.2.1: {}
 
   magic-string@0.25.9:
@@ -2632,6 +2671,8 @@ snapshots:
   ohash@1.1.6: {}
 
   ohash@2.0.11: {}
+
+  openapi-types@12.1.3: {}
 
   oxlint@0.13.2:
     optionalDependencies:
@@ -2726,6 +2767,8 @@ snapshots:
       '@rollup/rollup-win32-x64-gnu': 4.60.1
       '@rollup/rollup-win32-x64-msvc': 4.60.1
       fsevents: 2.3.3
+
+  rou3@0.5.1: {}
 
   selfsigned@2.4.1:
     dependencies:

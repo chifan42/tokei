@@ -1,14 +1,14 @@
-import { RPCHandler } from '@orpc/server/fetch'
+import { OpenAPIHandler } from '@orpc/openapi/fetch'
 import { tokeiRouter } from './router'
 import { fetchAndStorePrices } from './cron/fetchPrices'
 import { drizzle } from 'drizzle-orm/d1'
 import type { Env } from './env'
 
-const rpcHandler = new RPCHandler(tokeiRouter)
+const openApiHandler = new OpenAPIHandler(tokeiRouter)
 
 export default {
   async fetch(request: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
-    const { matched, response } = await rpcHandler.handle(request, {
+    const { matched, response } = await openApiHandler.handle(request, {
       context: { env, db: env.DB, request },
     })
     if (matched) return response
