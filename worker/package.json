@@ -1,0 +1,32 @@
+{
+  "name": "@tokei/worker",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "build": "tsc --noEmit",
+    "lint": "oxlint src test",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate:local": "wrangler d1 migrations apply tokei --local",
+    "db:migrate:prod": "wrangler d1 migrations apply tokei --remote"
+  },
+  "dependencies": {
+    "@orpc/contract": "^0.54.0",
+    "@orpc/server": "^0.54.0",
+    "drizzle-orm": "^0.36.4",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.5.40",
+    "@cloudflare/workers-types": "^4.20241106.0",
+    "drizzle-kit": "^0.29.1",
+    "oxlint": "^0.13.0",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.5",
+    "wrangler": "^3.86.1"
+  }
+}

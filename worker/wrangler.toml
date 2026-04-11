@@ -1,0 +1,19 @@
+name = "tokei-worker"
+main = "src/index.ts"
+compatibility_date = "2026-04-01"
+compatibility_flags = ["nodejs_compat"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "tokei"
+database_id = "PLACEHOLDER_WILL_BE_SET_AT_DEPLOY"
+migrations_dir = "migrations"
+
+[triggers]
+crons = ["0 3 * * *"]  # daily 03:00 UTC price fetch
+
+[vars]
+# TOKEI_BEARER_TOKEN is set via `wrangler secret put TOKEI_BEARER_TOKEN`
+# LITELLM_PRICE_URL defaults below but can be overridden
+LITELLM_PRICE_URL = "https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json"
+TOKEI_TIMEZONE = "Asia/Shanghai"
