@@ -37,7 +37,9 @@ class ParserResult:
 class RunSummary:
     total_uploaded: int
     total_deduped: int
-    parser_results: dict[str, ParserResult] = field(default_factory=lambda: cast(dict[str, "ParserResult"], {}))
+    parser_results: dict[str, ParserResult] = field(
+        default_factory=lambda: cast(dict[str, "ParserResult"], {})
+    )
     errors: list[str] = field(default_factory=lambda: cast(list[str], []))
     last_success_ts: int = 0
 

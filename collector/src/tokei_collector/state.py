@@ -16,7 +16,9 @@ class StateError(Exception):
 @dataclass
 class State:
     path: Path
-    watermarks: dict[str, dict[str, Any]] = field(default_factory=lambda: cast(dict[str, dict[str, Any]], {}))
+    watermarks: dict[str, dict[str, Any]] = field(
+        default_factory=lambda: cast(dict[str, dict[str, Any]], {})
+    )
 
     def get(self, parser: str) -> dict[str, Any]:
         return self.watermarks.get(parser, {})

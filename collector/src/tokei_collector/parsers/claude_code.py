@@ -14,9 +14,7 @@ from .base import ParserContext
 class ClaudeCodeParser:
     tool_name = "claude_code"
 
-    def scan(
-        self, ctx: ParserContext, watermark: dict[str, Any]
-    ) -> Iterator[Event]:
+    def scan(self, ctx: ParserContext, watermark: dict[str, Any]) -> Iterator[Event]:
         projects = ctx.home / ".claude" / "projects"
         if not projects.exists():
             return

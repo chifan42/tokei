@@ -45,5 +45,6 @@ def test_event_frozen():
         output_tokens=0,
     )
     import dataclasses
+
     with __import__("pytest").raises(dataclasses.FrozenInstanceError):
         e.tool = "cursor"  # type: ignore[misc]

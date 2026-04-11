@@ -36,12 +36,8 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("doctor", help="Print config/state/errors for troubleshooting")
 
     install_cmd = sub.add_parser("install", help="Install timer unit for this platform")
-    install_cmd.add_argument(
-        "--launchd", action="store_true", help="macOS: install launchd plist"
-    )
-    install_cmd.add_argument(
-        "--systemd", action="store_true", help="Linux: install systemd timer"
-    )
+    install_cmd.add_argument("--launchd", action="store_true", help="macOS: install launchd plist")
+    install_cmd.add_argument("--systemd", action="store_true", help="Linux: install systemd timer")
 
     return p
 
@@ -98,9 +94,7 @@ def _cmd_init(config_path: Path | None, *, force: bool) -> int:
     print("Tokei Collector: interactive init")
     device_id = input("device_id (e.g., my-mac): ").strip()
     worker_url = input("worker_url (https://...workers.dev): ").strip()
-    bearer_ref = input(
-        "bearer_token (paste value OR 'env:TOKEI_TOKEN' to use env var): "
-    ).strip()
+    bearer_ref = input("bearer_token (paste value OR 'env:TOKEI_TOKEN' to use env var): ").strip()
 
     default_parsers = "claude_code, codex, cursor, gemini"
     parsers_raw = input(f"enabled_parsers [{default_parsers}]: ").strip() or default_parsers

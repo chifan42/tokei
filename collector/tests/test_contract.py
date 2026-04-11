@@ -4,6 +4,7 @@ Parses every file in fixtures/events/*.json, asserts our Event dataclass
 can ingest them and round-trips to the same JSON shape (modulo default
 field normalization).
 """
+
 from __future__ import annotations
 
 import json

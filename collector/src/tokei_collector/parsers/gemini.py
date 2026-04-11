@@ -22,9 +22,7 @@ API_EVENT_NAME = "gemini_cli.api_response"
 class GeminiParser:
     tool_name = "gemini"
 
-    def scan(
-        self, ctx: ParserContext, watermark: dict[str, Any]
-    ) -> Iterator[Event]:
+    def scan(self, ctx: ParserContext, watermark: dict[str, Any]) -> Iterator[Event]:
         log_path = ctx.gemini_outfile
         if log_path is None or not log_path.exists():
             return

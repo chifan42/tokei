@@ -19,9 +19,7 @@ class ParserContext:
 class Parser(Protocol):
     tool_name: str
 
-    def scan(
-        self, ctx: ParserContext, watermark: dict[str, Any]
-    ) -> Iterator[Event]:
+    def scan(self, ctx: ParserContext, watermark: dict[str, Any]) -> Iterator[Event]:
         """Yield new Events since the watermark and update it in-place.
 
         The runner saves the watermark to disk only after all events from

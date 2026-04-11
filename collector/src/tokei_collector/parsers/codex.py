@@ -14,9 +14,7 @@ from .base import ParserContext
 class CodexParser:
     tool_name = "codex"
 
-    def scan(
-        self, ctx: ParserContext, watermark: dict[str, Any]
-    ) -> Iterator[Event]:
+    def scan(self, ctx: ParserContext, watermark: dict[str, Any]) -> Iterator[Event]:
         sessions = ctx.home / ".codex" / "sessions"
         if not sessions.exists():
             return

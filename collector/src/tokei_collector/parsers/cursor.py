@@ -10,17 +10,13 @@ from typing import Any, cast
 from ..models import Event
 from .base import ParserContext
 
-CURSOR_GLOBAL_STORAGE = (
-    "Library/Application Support/Cursor/User/globalStorage/state.vscdb"
-)
+CURSOR_GLOBAL_STORAGE = "Library/Application Support/Cursor/User/globalStorage/state.vscdb"
 
 
 class CursorParser:
     tool_name = "cursor"
 
-    def scan(
-        self, ctx: ParserContext, watermark: dict[str, Any]
-    ) -> Iterator[Event]:
+    def scan(self, ctx: ParserContext, watermark: dict[str, Any]) -> Iterator[Event]:
         db_path = ctx.home / CURSOR_GLOBAL_STORAGE
         if not db_path.exists():
             return
@@ -33,9 +29,7 @@ class CursorParser:
             return
 
         try:
-            cursor = conn.execute(
-                "SELECT value FROM cursorDiskKV WHERE key LIKE 'bubbleId:%'"
-            )
+            cursor = conn.execute("SELECT value FROM cursorDiskKV WHERE key LIKE 'bubbleId:%'")
             for (raw,) in cursor:
                 text = raw.decode("utf-8", errors="replace") if isinstance(raw, bytes) else str(raw)
                 try:

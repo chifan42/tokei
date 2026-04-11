@@ -49,7 +49,9 @@ def load_config(path: Path | None = None) -> Config:
         raise ConfigError("[parsers] must be a table")
     parsers = cast(dict[str, object], parsers_raw)
     enabled_raw = parsers.get("enabled", [])
-    if not isinstance(enabled_raw, list) or not all(isinstance(x, str) for x in cast(list[object], enabled_raw)):
+    if not isinstance(enabled_raw, list) or not all(
+        isinstance(x, str) for x in cast(list[object], enabled_raw)
+    ):
         raise ConfigError("parsers.enabled must be a list of strings")
     enabled: list[str] = [str(x) for x in cast(list[str], enabled_raw)]
     unknown = [p for p in enabled if p not in KNOWN_PARSERS]

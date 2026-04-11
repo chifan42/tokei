@@ -45,9 +45,31 @@ def _setup_cursor_home(tmp_path: Path) -> Path:
 
 def test_parses_bubbles_with_nonzero_tokens(tmp_path: Path):
     home = _setup_cursor_home(tmp_path)
-    db = home / "Library" / "Application Support" / "Cursor" / "User" / "globalStorage" / "state.vscdb"
-    _insert_bubble(db, "bub-1", input_tokens=27909, output_tokens=9129, usage_uuid="usage-1", client_end_time_ms=1744370000000)
-    _insert_bubble(db, "bub-2", input_tokens=1000, output_tokens=500, usage_uuid="usage-2", client_end_time_ms=1744370010000)
+    db = (
+        home
+        / "Library"
+        / "Application Support"
+        / "Cursor"
+        / "User"
+        / "globalStorage"
+        / "state.vscdb"
+    )
+    _insert_bubble(
+        db,
+        "bub-1",
+        input_tokens=27909,
+        output_tokens=9129,
+        usage_uuid="usage-1",
+        client_end_time_ms=1744370000000,
+    )
+    _insert_bubble(
+        db,
+        "bub-2",
+        input_tokens=1000,
+        output_tokens=500,
+        usage_uuid="usage-2",
+        client_end_time_ms=1744370010000,
+    )
 
     parser = CursorParser()
     ctx = ParserContext(home=home)
@@ -64,9 +86,31 @@ def test_parses_bubbles_with_nonzero_tokens(tmp_path: Path):
 
 def test_skips_bubbles_with_zero_tokens(tmp_path: Path):
     home = _setup_cursor_home(tmp_path)
-    db = home / "Library" / "Application Support" / "Cursor" / "User" / "globalStorage" / "state.vscdb"
-    _insert_bubble(db, "user-1", input_tokens=0, output_tokens=0, usage_uuid="usage-zero", client_end_time_ms=1744370000000)
-    _insert_bubble(db, "asst-1", input_tokens=500, output_tokens=200, usage_uuid="usage-real", client_end_time_ms=1744370000000)
+    db = (
+        home
+        / "Library"
+        / "Application Support"
+        / "Cursor"
+        / "User"
+        / "globalStorage"
+        / "state.vscdb"
+    )
+    _insert_bubble(
+        db,
+        "user-1",
+        input_tokens=0,
+        output_tokens=0,
+        usage_uuid="usage-zero",
+        client_end_time_ms=1744370000000,
+    )
+    _insert_bubble(
+        db,
+        "asst-1",
+        input_tokens=500,
+        output_tokens=200,
+        usage_uuid="usage-real",
+        client_end_time_ms=1744370000000,
+    )
 
     parser = CursorParser()
     ctx = ParserContext(home=home)
@@ -77,8 +121,23 @@ def test_skips_bubbles_with_zero_tokens(tmp_path: Path):
 
 def test_watermark_skips_previously_seen_usage_uuids(tmp_path: Path):
     home = _setup_cursor_home(tmp_path)
-    db = home / "Library" / "Application Support" / "Cursor" / "User" / "globalStorage" / "state.vscdb"
-    _insert_bubble(db, "b1", input_tokens=100, output_tokens=50, usage_uuid="u1", client_end_time_ms=1744370000000)
+    db = (
+        home
+        / "Library"
+        / "Application Support"
+        / "Cursor"
+        / "User"
+        / "globalStorage"
+        / "state.vscdb"
+    )
+    _insert_bubble(
+        db,
+        "b1",
+        input_tokens=100,
+        output_tokens=50,
+        usage_uuid="u1",
+        client_end_time_ms=1744370000000,
+    )
 
     parser = CursorParser()
     ctx = ParserContext(home=home)
@@ -86,7 +145,14 @@ def test_watermark_skips_previously_seen_usage_uuids(tmp_path: Path):
     first = list(parser.scan(ctx, wm))
     assert len(first) == 1
 
-    _insert_bubble(db, "b2", input_tokens=200, output_tokens=80, usage_uuid="u2", client_end_time_ms=1744370010000)
+    _insert_bubble(
+        db,
+        "b2",
+        input_tokens=200,
+        output_tokens=80,
+        usage_uuid="u2",
+        client_end_time_ms=1744370010000,
+    )
 
     second = list(parser.scan(ctx, wm))
     assert len(second) == 1
