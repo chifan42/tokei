@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <time.h>
 
+LV_FONT_DECLARE(noto_sans_cjk_14);
+
 namespace tokei {
 
 static lv_obj_t* root = nullptr;
@@ -219,12 +221,14 @@ void uiRender(const TokeiSummary& s,
     lv_obj_t* text = lv_label_create(foot);
     lv_label_set_long_mode(text, LV_LABEL_LONG_WRAP);
     lv_obj_set_width(text, 384);
+    lv_obj_set_style_text_font(text, &noto_sans_cjk_14, 0);
     lv_label_set_text(text, s.quote_text);
     lv_obj_align(text, LV_ALIGN_TOP_LEFT, 0, 18);
 
     lv_obj_t* attr = lv_label_create(foot);
     char attr_str[96];
     snprintf(attr_str, sizeof(attr_str), "- %s", s.quote_attr);
+    lv_obj_set_style_text_font(attr, &noto_sans_cjk_14, 0);
     lv_label_set_text(attr, attr_str);
     lv_obj_align(attr, LV_ALIGN_BOTTOM_RIGHT, -4, -4);
 
