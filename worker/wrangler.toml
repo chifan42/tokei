@@ -6,7 +6,7 @@ compatibility_flags = ["nodejs_compat"]
 [[d1_databases]]
 binding = "DB"
 database_name = "tokei"
-database_id = "PLACEHOLDER_WILL_BE_SET_AT_DEPLOY"
+database_id = "155e5c13-3984-44e2-b886-35273b1d15ec"
 migrations_dir = "migrations"
 
 [triggers]
