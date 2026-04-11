@@ -73,3 +73,31 @@ export async function aggregateMonth(db: Db, now: number, tz: string): Promise<M
   )
   return { total_tokens: row?.tokens ?? 0, total_usd: row?.usd ?? 0 }
 }
+
+/** Returns 7 k-token values, oldest first. Missing days are filled with 0. */
+export async function sparkline7d(db: Db, now: number, tz: string): Promise<number[]> {
+  const todayStart = startOfDay(now, tz)
+  const sixDaysAgoStart = todayStart - 6 * 86400
+
+  const rows = await db.all<{ day_start: number; tokens: number }>(
+    sql`
+      SELECT
+        CAST((ts - ((ts + 28800) % 86400)) AS INTEGER) AS day_start,
+        CAST(COALESCE(SUM(input_tokens + output_tokens + cached_input_tokens + cache_creation_tokens + reasoning_output_tokens), 0) AS INTEGER) AS tokens
+      FROM events
+      WHERE ts >= ${sixDaysAgoStart}
+      GROUP BY day_start
+    `,
+  )
+
+  const byDay = new Map<number, number>()
+  for (const r of rows) byDay.set(r.day_start, r.tokens)
+
+  const result: number[] = []
+  for (let i = 6; i >= 0; i--) {
+    const dayStart = todayStart - i * 86400
+    const tokens = byDay.get(dayStart) ?? 0
+    result.push(Math.round(tokens / 1000))
+  }
+  return result
+}

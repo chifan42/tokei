@@ -3,7 +3,7 @@ import { env } from 'cloudflare:test'
 import { drizzle } from 'drizzle-orm/d1'
 import { prices } from '../../src/db/schema'
 import { insertEvents } from '../../src/db/events'
-import { aggregateToday, aggregateMonth } from '../../src/db/aggregate'
+import { aggregateToday, aggregateMonth, sparkline7d } from '../../src/db/aggregate'
 import { FALLBACK_MODEL } from '../../src/db/prices'
 import type { EventInput } from '../../src/contract'
 
@@ -111,5 +111,40 @@ describe('aggregateMonth', () => {
     ])
     const result = await aggregateMonth(db(), APR_12, TZ)
     expect(result.total_tokens).toBe(1000 + 2000)
+  })
+})
+
+describe('sparkline7d', () => {
+  it('returns 7 integer values (k tokens) oldest to newest', async () => {
+    // Insert 1 event per day for 7 days, with increasing token counts
+    for (let i = 0; i < 7; i++) {
+      await insertEvents(db(), 'dev-1', [
+        sample({
+          event_uuid: `day-${i}`,
+          ts: TODAY_NOON - i * 86400,
+          input_tokens: (7 - i) * 1000, // newer day = more tokens
+          output_tokens: 0,
+        }),
+      ])
+    }
+
+    const result = await sparkline7d(db(), TODAY_NOON, TZ)
+    expect(result).toHaveLength(7)
+    // Oldest first: day-6 (1k), day-5 (2k), ..., day-0 (7k)
+    expect(result).toEqual([1, 2, 3, 4, 5, 6, 7])
+  })
+
+  it('fills missing days with 0', async () => {
+    await insertEvents(db(), 'dev-1', [
+      sample({ event_uuid: 'today', ts: TODAY_NOON, input_tokens: 5000, output_tokens: 0 }),
+      sample({ event_uuid: 'four-days-ago', ts: TODAY_NOON - 4 * 86400, input_tokens: 3000, output_tokens: 0 }),
+    ])
+
+    const result = await sparkline7d(db(), TODAY_NOON, TZ)
+    // Indices: 0=6 days ago, 6=today
+    expect(result[6]).toBe(5)
+    expect(result[2]).toBe(3)
+    expect(result[0]).toBe(0)
+    expect(result[1]).toBe(0)
   })
 })
