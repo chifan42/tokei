@@ -7,7 +7,7 @@
     "lint": "pnpm --filter worker lint",
     "test": "pnpm --filter worker test",
     "build": "pnpm --filter worker build",
-    "deploy:worker": "pnpm --filter worker deploy"
+    "ship:worker": "pnpm --filter @tokei/worker run ship"
   },
   "packageManager": "pnpm@9.12.0"
 }
