@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import sqlite3
 from collections.abc import Iterator
+from datetime import datetime
 from typing import Any, cast
 
 from ..models import Event
@@ -62,22 +63,60 @@ def _extract_event(obj: dict[str, Any], seen: set[str]) -> Event | None:
     if usage_uuid in seen:
         return None
 
-    timing_raw = obj.get("timingInfo")
-    ts = 0
-    if isinstance(timing_raw, dict):
-        timing = cast(dict[str, Any], timing_raw)
-        end_ms = timing.get("clientEndTime")
-        if isinstance(end_ms, int | float):
-            ts = int(end_ms / 1000)
+    ts = _extract_ts(obj)
+    if ts is None:
+        # Skip bubbles we cannot date. Cursor's older schema (_v=2 without
+        # timingInfo) and any blob with missing/corrupt timing leaves us with
+        # no way to place the event in time, so aggregations would be wrong.
+        return None
+
+    model = _extract_model(obj)
 
     return Event(
         tool="cursor",
         event_uuid=usage_uuid,
         ts=ts,
-        model=None,
+        model=model,
         input_tokens=input_tokens,
         output_tokens=output_tokens,
         cached_input_tokens=0,
         cache_creation_tokens=0,
         reasoning_output_tokens=0,
     )
+
+
+_MIN_VALID_TS = 1577836800  # 2020-01-01 UTC. Anything older is a parse artifact.
+
+
+def _extract_ts(obj: dict[str, Any]) -> int | None:
+    timing_raw = obj.get("timingInfo")
+    if isinstance(timing_raw, dict):
+        timing = cast(dict[str, Any], timing_raw)
+        end_ms = timing.get("clientEndTime")
+        if isinstance(end_ms, int | float) and end_ms > 0:
+            ts = int(end_ms / 1000)
+            if ts >= _MIN_VALID_TS:
+                return ts
+
+    # Cursor _v=3 bubbles include a createdAt ISO string; fall back to it if
+    # timingInfo is absent or invalid.
+    created_raw = obj.get("createdAt")
+    if isinstance(created_raw, str) and created_raw:
+        try:
+            parsed = datetime.fromisoformat(created_raw.replace("Z", "+00:00"))
+            ts = int(parsed.timestamp())
+            if ts >= _MIN_VALID_TS:
+                return ts
+        except ValueError:
+            pass
+
+    return None
+
+
+def _extract_model(obj: dict[str, Any]) -> str | None:
+    model_info = obj.get("modelInfo")
+    if isinstance(model_info, dict):
+        name = cast(dict[str, Any], model_info).get("modelName")
+        if isinstance(name, str) and name:
+            return name
+    return None
