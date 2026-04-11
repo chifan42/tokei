@@ -3,7 +3,7 @@ import { env } from 'cloudflare:test'
 import { drizzle } from 'drizzle-orm/d1'
 import { prices } from '../../src/db/schema'
 import { insertEvents } from '../../src/db/events'
-import { aggregateToday } from '../../src/db/aggregate'
+import { aggregateToday, aggregateMonth } from '../../src/db/aggregate'
 import { FALLBACK_MODEL } from '../../src/db/prices'
 import type { EventInput } from '../../src/contract'
 
@@ -94,5 +94,22 @@ describe('aggregateToday', () => {
     const result = await aggregateToday(db(), TODAY_NOON, TZ)
     expect(result.tools[0]?.name).toBe('cursor')
     expect(result.tools[1]?.name).toBe('claude_code')
+  })
+})
+
+// first of April 2026 UTC+8 = 2026-04-01 00:00 CST = 1743436800
+const APR_1 = 1743436800
+const APR_12 = APR_1 + 11 * 86400
+const MAR_31 = APR_1 - 3600
+
+describe('aggregateMonth', () => {
+  it('sums tokens from month start to now', async () => {
+    await insertEvents(db(), 'dev-1', [
+      sample({ tool: 'claude_code', event_uuid: 'apr-1', ts: APR_1, input_tokens: 1000, output_tokens: 0 }),
+      sample({ tool: 'claude_code', event_uuid: 'apr-12', ts: APR_12, input_tokens: 2000, output_tokens: 0 }),
+      sample({ tool: 'claude_code', event_uuid: 'mar-31', ts: MAR_31, input_tokens: 99999, output_tokens: 0 }),
+    ])
+    const result = await aggregateMonth(db(), APR_12, TZ)
+    expect(result.total_tokens).toBe(1000 + 2000)
   })
 })
