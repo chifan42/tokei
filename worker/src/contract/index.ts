@@ -83,6 +83,7 @@ export const tokeiContract = oc
 export type HandlerContext = {
   env: Env
   db: D1Database
+  request: Request
 }
 
 export const os = implement(tokeiContract).$context<HandlerContext>()
