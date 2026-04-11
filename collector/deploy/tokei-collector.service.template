@@ -1,0 +1,10 @@
+[Unit]
+Description=Tokei Collector (single shot)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=__TOKEI_BINARY__ run
+StandardOutput=journal
+StandardError=journal
