@@ -89,7 +89,9 @@ export function dashboardHtml(): string {
     </div>
   </div>
 
-  <div class="tools" id="tools"></div>
+  <div class="tools" id="tools-today"></div>
+
+  <div class="tools" id="tools-month" style="margin-top:4px"></div>
 
   <div class="quote" id="quote"></div>
   <div class="sync" id="sync"></div>
@@ -134,8 +136,9 @@ function render(d) {
   renderSpark('spark-global', d.sparkline_7d)
   renderSparkLabels('spark-labels', d.sync_ts)
 
-  const toolsEl = document.getElementById('tools')
-  toolsEl.innerHTML = ''
+  // Today tools
+  const todayEl = document.getElementById('tools-today')
+  todayEl.innerHTML = '<div style="font-size:10px;font-weight:700;letter-spacing:1px;color:var(--muted);margin-bottom:4px">TODAY BY TOOL</div>'
   for (const t of d.today.tools) {
     const div = document.createElement('div')
     div.className = 'tool'
@@ -147,6 +150,22 @@ function render(d) {
       '<div class="spark" id="spark-' + t.name + '"></div>'
     toolsEl.appendChild(div)
     if (t.sparkline_7d) renderSpark('spark-' + t.name, t.sparkline_7d)
+  }
+
+  // Month tools
+  const monthEl = document.getElementById('tools-month')
+  if (d.month.tools && d.month.tools.length > 0) {
+    monthEl.innerHTML = '<div style="font-size:10px;font-weight:700;letter-spacing:1px;color:var(--muted);margin-bottom:4px">THIS MONTH BY TOOL</div>'
+    for (const t of d.month.tools) {
+      const div = document.createElement('div')
+      div.className = 'tool'
+      div.innerHTML = '<div class="tool-top">' +
+        '<span class="tool-name">' + (NAMES[t.name] || t.name) + '</span>' +
+        '<span class="tool-val">' + fmt(t.tokens) + '</span>' +
+        '</div>' +
+        '<div class="tool-usd">$' + t.usd.toFixed(2) + '</div>'
+      monthEl.appendChild(div)
+    }
   }
 
   const q = d.quote

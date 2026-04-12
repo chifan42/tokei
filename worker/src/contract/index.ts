@@ -37,6 +37,13 @@ export const summaryResponseSchema = z.object({
   month: z.object({
     total_tokens: z.number().int(),
     total_usd: z.number(),
+    tools: z.array(
+      z.object({
+        name: z.string(),
+        tokens: z.number().int(),
+        usd: z.number(),
+      }),
+    ),
   }),
   sparkline_7d: z.array(z.number().int()).length(7),
   quote: z.object({

@@ -17,6 +17,7 @@ import sqlite3
 import time
 from collections.abc import Iterator
 from datetime import datetime
+from pathlib import Path
 from typing import Any, cast
 
 import httpx
@@ -24,7 +25,10 @@ import httpx
 from ..models import Event
 from .base import ParserContext
 
-CURSOR_GLOBAL_STORAGE = "Library/Application Support/Cursor/User/globalStorage/state.vscdb"
+CURSOR_PATHS = [
+    "Library/Application Support/Cursor/User/globalStorage/state.vscdb",  # macOS
+    ".config/Cursor/User/globalStorage/state.vscdb",                       # Linux
+]
 CURSOR_USAGE_API = "https://api2.cursor.sh/auth/usage"
 
 
@@ -32,8 +36,8 @@ class CursorParser:
     tool_name = "cursor"
 
     def scan(self, ctx: ParserContext, watermark: dict[str, Any]) -> Iterator[Event]:
-        db_path = ctx.home / CURSOR_GLOBAL_STORAGE
-        if not db_path.exists():
+        db_path = _find_cursor_db(ctx.home)
+        if db_path is None:
             return
 
         # Phase 1: historical local bubbles (same as before)
@@ -43,6 +47,14 @@ class CursorParser:
         access_token = _read_access_token(db_path)
         if access_token:
             yield from _scan_api_usage(access_token, watermark)
+
+
+def _find_cursor_db(home: Path) -> Path | None:
+    for rel in CURSOR_PATHS:
+        p = home / rel
+        if p.exists():
+            return p
+    return None
 
 
 def _scan_local_bubbles(db_path: Any, watermark: dict[str, Any]) -> Iterator[Event]:

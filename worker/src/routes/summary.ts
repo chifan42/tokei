@@ -29,7 +29,11 @@ export async function summaryHandler(deps: SummaryDeps): Promise<SummaryResponse
         return { name: t.name, tokens: t.tokens, usd: round2(t.usd), sparkline_7d: ts?.sparkline ?? [0,0,0,0,0,0,0] }
       }),
     },
-    month: { total_tokens: month.total_tokens, total_usd: round2(month.total_usd) },
+    month: {
+      total_tokens: month.total_tokens,
+      total_usd: round2(month.total_usd),
+      tools: month.tools.map((t) => ({ name: t.name, tokens: t.tokens, usd: round2(t.usd) })),
+    },
     sparkline_7d: sparkline,
     quote: { text: quote.text, attr: quote.attr ?? '', category: quote.category, lang: quote.lang },
     sync_ts: now,

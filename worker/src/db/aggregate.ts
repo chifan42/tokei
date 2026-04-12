@@ -60,7 +60,9 @@ export function startOfMonth(now: number, tz: string): number {
   return firstUtcMs / 1000 - offsetSec
 }
 
-export async function aggregateMonth(db: Db, now: number, tz: string): Promise<MonthResult> {
+export type MonthToolResult = { name: string; tokens: number; usd: number }
+
+export async function aggregateMonth(db: Db, now: number, tz: string): Promise<MonthResult & { tools: MonthToolResult[] }> {
   const monthStart = startOfMonth(now, tz)
   const row = await db.get<{ tokens: number; usd: number }>(
     sql`
@@ -71,7 +73,23 @@ export async function aggregateMonth(db: Db, now: number, tz: string): Promise<M
       WHERE ts >= ${monthStart}
     `,
   )
-  return { total_tokens: row?.tokens ?? 0, total_usd: row?.usd ?? 0 }
+  const toolRows = await db.all<{ tool: string; tokens: number; usd: number }>(
+    sql`
+      SELECT
+        tool,
+        CAST(COALESCE(SUM(input_tokens + output_tokens + cached_input_tokens + cache_creation_tokens + reasoning_output_tokens), 0) AS INTEGER) AS tokens,
+        COALESCE(SUM(usd_cost), 0) AS usd
+      FROM events
+      WHERE ts >= ${monthStart}
+      GROUP BY tool
+      ORDER BY tokens DESC
+    `,
+  )
+  return {
+    total_tokens: row?.tokens ?? 0,
+    total_usd: row?.usd ?? 0,
+    tools: toolRows.map((r) => ({ name: r.tool, tokens: r.tokens, usd: r.usd })),
+  }
 }
 
 /** Returns 7 k-token values, oldest first. Missing days are filled with 0. */
