@@ -23,15 +23,15 @@ def test_parses_token_count_events_as_deltas(tmp_path: Path):
 
     events = list(parser.scan(ctx, {}))
     assert len(events) == 2
-    # First event: delta equal to last_token_usage values
+    # First event: input = raw_input - cached (1000 - 500 = 500)
     assert events[0].event_uuid == "sess-1:0"
-    assert events[0].input_tokens == 1000
+    assert events[0].input_tokens == 500
     assert events[0].output_tokens == 100
     assert events[0].cached_input_tokens == 500
     assert events[0].reasoning_output_tokens == 50
-    # Second event: delta from last_token_usage (not total)
+    # Second event: input = 1500 - 700 = 800
     assert events[1].event_uuid == "sess-1:1"
-    assert events[1].input_tokens == 1500
+    assert events[1].input_tokens == 800
     assert events[1].output_tokens == 150
     assert events[1].cached_input_tokens == 700
     assert events[1].reasoning_output_tokens == 30

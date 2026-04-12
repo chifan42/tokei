@@ -14,6 +14,7 @@ from ..models import Event
 class ParserContext:
     home: Path
     gemini_outfile: Path | None = None
+    cursor_dashboard_token: str | None = None
 
 
 class Parser(Protocol):

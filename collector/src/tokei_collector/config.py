@@ -22,6 +22,7 @@ class Config:
     bearer_token: str
     enabled_parsers: list[str]
     gemini_outfile: Path | None
+    cursor_dashboard_token: str | None
     config_path: Path
 
 
@@ -66,12 +67,21 @@ def load_config(path: Path | None = None) -> Config:
         if isinstance(outfile_raw, str):
             gemini_outfile = Path(outfile_raw).expanduser()
 
+    cursor_dashboard_token: str | None = None
+    cursor_raw = parsers.get("cursor", {})
+    if isinstance(cursor_raw, dict):
+        cursor_section = cast(dict[str, object], cursor_raw)
+        token_raw = cursor_section.get("dashboard_token")
+        if isinstance(token_raw, str) and token_raw:
+            cursor_dashboard_token = token_raw
+
     return Config(
         device_id=device_id,
         worker_url=worker_url.rstrip("/"),
         bearer_token=bearer_token,
         enabled_parsers=enabled,
         gemini_outfile=gemini_outfile,
+        cursor_dashboard_token=cursor_dashboard_token,
         config_path=path,
     )
 

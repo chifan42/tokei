@@ -29,7 +29,7 @@ CURSOR_PATHS = [
     "Library/Application Support/Cursor/User/globalStorage/state.vscdb",  # macOS
     ".config/Cursor/User/globalStorage/state.vscdb",                       # Linux
 ]
-CURSOR_USAGE_API = "https://api2.cursor.sh/auth/usage"
+CURSOR_DASHBOARD_API = "https://cursor.com/api/dashboard/get-filtered-usage-events"
 
 
 class CursorParser:
@@ -37,16 +37,15 @@ class CursorParser:
 
     def scan(self, ctx: ParserContext, watermark: dict[str, Any]) -> Iterator[Event]:
         db_path = _find_cursor_db(ctx.home)
-        if db_path is None:
-            return
 
-        # Phase 1: historical local bubbles (same as before)
-        yield from _scan_local_bubbles(db_path, watermark)
+        # Phase 1: historical local bubbles
+        if db_path is not None:
+            yield from _scan_local_bubbles(db_path, watermark)
 
-        # Phase 2: server API for recent data
-        access_token = _read_access_token(db_path)
-        if access_token:
-            yield from _scan_api_usage(access_token, watermark)
+        # Phase 2: dashboard API for per-request usage events (much better than /auth/usage)
+        dashboard_token = ctx.cursor_dashboard_token
+        if dashboard_token:
+            yield from _scan_dashboard_events(dashboard_token, watermark)
 
 
 def _find_cursor_db(home: Path) -> Path | None:
@@ -109,84 +108,100 @@ def _scan_local_bubbles(db_path: Any, watermark: dict[str, Any]) -> Iterator[Eve
     watermark["seen_uuids"] = sorted(seen_uuids)
 
 
-def _read_access_token(db_path: Any) -> str | None:
-    try:
-        conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
-        cur = conn.execute("SELECT value FROM ItemTable WHERE key='cursorAuth/accessToken'")
-        row = cur.fetchone()
-        conn.close()
-        if row and isinstance(row[0], str) and row[0]:
-            return row[0]
-    except sqlite3.Error:
-        pass
-    return None
 
+def _scan_dashboard_events(dashboard_token: str, watermark: dict[str, Any]) -> Iterator[Event]:
+    """Fetch per-request usage events from Cursor's dashboard API.
 
-def _scan_api_usage(access_token: str, watermark: dict[str, Any]) -> Iterator[Event]:
-    api_wm: dict[str, int] = cast(dict[str, int], watermark.setdefault("api_usage", {}))
-    api_month: str = cast(str, watermark.get("api_month", ""))
-    first_run = len(api_wm) == 0 and not api_month
+    This gives exact timestamps, real model names, and full token breakdowns
+    (input/output/cache_read/cache_write) per API call. Paginated.
+    """
+    seen_ts: set[str] = set(cast(list[str], watermark.setdefault("dashboard_seen", [])))
+    last_ts: str = cast(str, watermark.get("dashboard_last_ts", "0"))
 
-    try:
-        with httpx.Client(timeout=15.0) as client:
-            resp = client.get(
-                CURSOR_USAGE_API,
-                headers={"Authorization": f"Bearer {access_token}"},
-            )
-        if resp.status_code != 200:
-            return
-        data = resp.json()
-    except (httpx.HTTPError, json.JSONDecodeError):
-        return
+    # Fetch events from last known timestamp to now
+    start_ms = last_ts if last_ts != "0" else str(int((time.time() - 30 * 86400) * 1000))
+    end_ms = str(int(time.time() * 1000))
 
-    if not isinstance(data, dict):
-        return
+    max_ts_seen = last_ts
+    page = 1
+    new_events: list[Event] = []
 
-    usage: dict[str, Any] = cast(dict[str, Any], data)
-    start_raw = usage.get("startOfMonth")
-    current_month = str(start_raw) if isinstance(start_raw, str) else ""
+    while True:
+        try:
+            with httpx.Client(timeout=30.0) as client:
+                resp = client.post(
+                    CURSOR_DASHBOARD_API,
+                    json={
+                        "teamId": 0,
+                        "startDate": start_ms,
+                        "endDate": end_ms,
+                        "page": page,
+                        "pageSize": 100,
+                    },
+                    cookies={"WorkosCursorSessionToken": dashboard_token},
+                    headers={"Content-Type": "application/json"},
+                )
+            if resp.status_code != 200:
+                break
+            data = resp.json()
+        except (httpx.HTTPError, json.JSONDecodeError):
+            break
 
-    if current_month and current_month != api_month:
-        api_wm.clear()
-        watermark["api_month"] = current_month
+        if not isinstance(data, dict):
+            break
 
-    now = int(time.time())
-    for model_key in list(usage.keys()):
-        if model_key == "startOfMonth":
-            continue
-        info = usage[model_key]
-        if not isinstance(info, dict):
-            continue
-        model_info = cast(dict[str, Any], info)
-        num_tokens_raw = model_info.get("numTokens")
-        if not isinstance(num_tokens_raw, int | float) or num_tokens_raw <= 0:
-            continue
+        resp_data = cast(dict[str, Any], data)
+        events_list = resp_data.get("usageEventsDisplay", [])
+        if not isinstance(events_list, list) or not events_list:
+            break
 
-        num_tokens = int(num_tokens_raw)
-        prev = api_wm.get(model_key, 0)
-        api_wm[model_key] = num_tokens
+        total_raw = resp_data.get("totalUsageEventsCount", 0)
+        total = int(total_raw) if isinstance(total_raw, int | float) else 0
 
-        if first_run:
-            # First run: record baseline without emitting events.
-            # Otherwise the entire billing-period aggregate (potentially
-            # millions of tokens) would appear as "today" usage.
-            continue
+        for ev_entry in cast(list[Any], events_list):
+            if not isinstance(ev_entry, dict):
+                continue
+            ev = cast(dict[str, Any], ev_entry)
+            ts_ms = ev.get("timestamp")
+            if not isinstance(ts_ms, str):
+                continue
 
-        if num_tokens <= prev:
-            continue
+            event_key = f"{ts_ms}-{ev.get('model','')}"
+            if event_key in seen_ts:
+                continue
 
-        delta = num_tokens - prev
-        input_est = delta * 2 // 3
-        output_est = delta - input_est
+            token_usage = ev.get("tokenUsage")
+            if not isinstance(token_usage, dict):
+                continue
+            tu = cast(dict[str, Any], token_usage)
 
-        yield Event(
-            tool="cursor",
-            event_uuid=f"cursor-api-{model_key}-{now}",
-            ts=now,
-            model=f"cursor-sub/{model_key}",
-            input_tokens=input_est,
-            output_tokens=output_est,
-        )
+            ts_sec = int(int(ts_ms) // 1000)
+            model = ev.get("model")
+            model_str = str(model) if isinstance(model, str) and model else None
+
+            new_events.append(Event(
+                tool="cursor",
+                event_uuid=f"cursor-dash-{ts_ms}",
+                ts=ts_sec,
+                model=model_str,
+                input_tokens=int(tu.get("inputTokens", 0) or 0),
+                output_tokens=int(tu.get("outputTokens", 0) or 0),
+                cached_input_tokens=int(tu.get("cacheReadTokens", 0) or 0),
+                cache_creation_tokens=int(tu.get("cacheWriteTokens", 0) or 0),
+            ))
+            seen_ts.add(event_key)
+            if ts_ms > max_ts_seen:
+                max_ts_seen = ts_ms
+
+        if page * 100 >= total:
+            break
+        page += 1
+
+    watermark["dashboard_seen"] = sorted(seen_ts)
+    watermark["dashboard_last_ts"] = max_ts_seen
+
+    yield from new_events
+
 
 
 def _extract_bubble_event(

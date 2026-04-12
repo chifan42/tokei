@@ -52,7 +52,11 @@ def run_once(
     retry_sleep: Callable[[float], None] = time.sleep,
 ) -> RunSummary:
     home = home or Path.home()
-    ctx = ParserContext(home=home, gemini_outfile=cfg.gemini_outfile)
+    ctx = ParserContext(
+        home=home,
+        gemini_outfile=cfg.gemini_outfile,
+        cursor_dashboard_token=cfg.cursor_dashboard_token,
+    )
 
     state = load_state(state_path)
     summary = RunSummary(total_uploaded=0, total_deduped=0)

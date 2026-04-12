@@ -25,6 +25,7 @@ def make_cfg(tmp_path: Path, worker_url: str) -> tuple[Config, Path]:
         bearer_token="secret",
         enabled_parsers=["claude_code"],
         gemini_outfile=None,
+        cursor_dashboard_token=None,
         config_path=tmp_path / "config.toml",
     )
     return cfg, state_path
