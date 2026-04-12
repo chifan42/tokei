@@ -1,17 +1,31 @@
-"""Parse Cursor state.vscdb bubbleId:* blobs for token usage."""
+"""Parse Cursor token usage from local bubbles (historical) and server API (recent).
+
+Historical data (_v=2 and early _v=3 bubbles with inline tokenCount) is read
+from the local state.vscdb SQLite file. Recent data (Jan 2026+, where Cursor
+stopped populating bubble tokenCount) is fetched from the Cursor server API
+at api2.cursor.sh/auth/usage, which returns per-model monthly aggregates.
+
+The server API approach: each collector run fetches the current month aggregate,
+diffs against the watermark, and emits the delta as new events. The watermark
+stores `{model: numTokens}` from the previous run.
+"""
 
 from __future__ import annotations
 
 import json
 import sqlite3
+import time
 from collections.abc import Iterator
 from datetime import datetime
 from typing import Any, cast
+
+import httpx
 
 from ..models import Event
 from .base import ParserContext
 
 CURSOR_GLOBAL_STORAGE = "Library/Application Support/Cursor/User/globalStorage/state.vscdb"
+CURSOR_USAGE_API = "https://api2.cursor.sh/auth/usage"
 
 
 class CursorParser:
@@ -22,32 +36,118 @@ class CursorParser:
         if not db_path.exists():
             return
 
-        seen_uuids: set[str] = set(cast(list[str], watermark.setdefault("seen_uuids", [])))
+        # Phase 1: historical local bubbles (same as before)
+        yield from _scan_local_bubbles(db_path, watermark)
 
-        try:
-            conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
-        except sqlite3.Error:
+        # Phase 2: server API for recent data
+        access_token = _read_access_token(db_path)
+        if access_token:
+            yield from _scan_api_usage(access_token, watermark)
+
+
+def _scan_local_bubbles(db_path: Any, watermark: dict[str, Any]) -> Iterator[Event]:
+    seen_uuids: set[str] = set(cast(list[str], watermark.setdefault("seen_uuids", [])))
+
+    try:
+        conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+    except sqlite3.Error:
+        return
+
+    try:
+        cursor = conn.execute("SELECT value FROM cursorDiskKV WHERE key LIKE 'bubbleId:%'")
+        for (raw,) in cursor:
+            text = raw.decode("utf-8", errors="replace") if isinstance(raw, bytes) else str(raw)
+            try:
+                obj = json.loads(text)
+            except json.JSONDecodeError:
+                continue
+            event = _extract_bubble_event(cast(dict[str, Any], obj), seen_uuids)
+            if event is not None:
+                seen_uuids.add(event.event_uuid)
+                yield event
+    finally:
+        conn.close()
+
+    watermark["seen_uuids"] = sorted(seen_uuids)
+
+
+def _read_access_token(db_path: Any) -> str | None:
+    try:
+        conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+        cur = conn.execute("SELECT value FROM ItemTable WHERE key='cursorAuth/accessToken'")
+        row = cur.fetchone()
+        conn.close()
+        if row and isinstance(row[0], str) and row[0]:
+            return row[0]
+    except sqlite3.Error:
+        pass
+    return None
+
+
+def _scan_api_usage(access_token: str, watermark: dict[str, Any]) -> Iterator[Event]:
+    api_wm: dict[str, int] = cast(dict[str, int], watermark.setdefault("api_usage", {}))
+    api_month: str = cast(str, watermark.get("api_month", ""))
+
+    try:
+        with httpx.Client(timeout=15.0) as client:
+            resp = client.get(
+                CURSOR_USAGE_API,
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+        if resp.status_code != 200:
             return
+        data = resp.json()
+    except (httpx.HTTPError, json.JSONDecodeError):
+        return
 
-        try:
-            cursor = conn.execute("SELECT value FROM cursorDiskKV WHERE key LIKE 'bubbleId:%'")
-            for (raw,) in cursor:
-                text = raw.decode("utf-8", errors="replace") if isinstance(raw, bytes) else str(raw)
-                try:
-                    obj = json.loads(text)
-                except json.JSONDecodeError:
-                    continue
-                event = _extract_event(cast(dict[str, Any], obj), seen_uuids)
-                if event is not None:
-                    seen_uuids.add(event.event_uuid)
-                    yield event
-        finally:
-            conn.close()
+    if not isinstance(data, dict):
+        return
 
-        watermark["seen_uuids"] = sorted(seen_uuids)
+    usage: dict[str, Any] = cast(dict[str, Any], data)
+    start_raw = usage.get("startOfMonth")
+    current_month = str(start_raw) if isinstance(start_raw, str) else ""
+
+    if current_month and current_month != api_month:
+        api_wm.clear()
+        watermark["api_month"] = current_month
+
+    now = int(time.time())
+    for model_key in list(usage.keys()):
+        if model_key == "startOfMonth":
+            continue
+        info = usage[model_key]
+        if not isinstance(info, dict):
+            continue
+        model_info = cast(dict[str, Any], info)
+        num_tokens_raw = model_info.get("numTokens")
+        if not isinstance(num_tokens_raw, int | float) or num_tokens_raw <= 0:
+            continue
+
+        num_tokens = int(num_tokens_raw)
+        prev = api_wm.get(model_key, 0)
+        if num_tokens <= prev:
+            continue
+
+        delta = num_tokens - prev
+        input_est = delta * 2 // 3
+        output_est = delta - input_est
+
+        # Cursor's API returns billing-bucket names like "gpt-4" which don't
+        # map to actual model pricing. Tag with a synthetic model so the worker
+        # can apply a $0 subscription rate instead of per-token pricing.
+        yield Event(
+            tool="cursor",
+            event_uuid=f"cursor-api-{model_key}-{now}",
+            ts=now,
+            model=f"cursor-sub/{model_key}",
+            input_tokens=input_est,
+            output_tokens=output_est,
+        )
+
+        api_wm[model_key] = num_tokens
 
 
-def _extract_event(obj: dict[str, Any], seen: set[str]) -> Event | None:
+def _extract_bubble_event(obj: dict[str, Any], seen: set[str]) -> Event | None:
     token_count_raw = obj.get("tokenCount")
     if not isinstance(token_count_raw, dict):
         return None
@@ -65,9 +165,6 @@ def _extract_event(obj: dict[str, Any], seen: set[str]) -> Event | None:
 
     ts = _extract_ts(obj)
     if ts is None:
-        # Skip bubbles we cannot date. Cursor's older schema (_v=2 without
-        # timingInfo) and any blob with missing/corrupt timing leaves us with
-        # no way to place the event in time, so aggregations would be wrong.
         return None
 
     model = _extract_model(obj)
@@ -79,13 +176,10 @@ def _extract_event(obj: dict[str, Any], seen: set[str]) -> Event | None:
         model=model,
         input_tokens=input_tokens,
         output_tokens=output_tokens,
-        cached_input_tokens=0,
-        cache_creation_tokens=0,
-        reasoning_output_tokens=0,
     )
 
 
-_MIN_VALID_TS = 1577836800  # 2020-01-01 UTC. Anything older is a parse artifact.
+_MIN_VALID_TS = 1577836800
 
 
 def _extract_ts(obj: dict[str, Any]) -> int | None:
@@ -98,8 +192,6 @@ def _extract_ts(obj: dict[str, Any]) -> int | None:
             if ts >= _MIN_VALID_TS:
                 return ts
 
-    # Cursor _v=3 bubbles include a createdAt ISO string; fall back to it if
-    # timingInfo is absent or invalid.
     created_raw = obj.get("createdAt")
     if isinstance(created_raw, str) and created_raw:
         try:
