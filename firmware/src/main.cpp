@@ -12,11 +12,14 @@
 
 using namespace tokei;
 
+static constexpr int KEY_PIN = 0;  // BOOT button = GPIO 0
+
 static TokeiSummary g_summary{};
 static StateMachine g_sm;
 static SensorReading g_sensors{};
 static uint32_t g_last_fetch_ms = 0;
 static uint32_t g_last_render_ms = 0;
+static uint32_t g_last_key_ms = 0;
 
 static void fetchAndRender() {
     int http_status = 0;
@@ -41,6 +44,8 @@ void setup() {
     Serial.begin(115200);
     delay(2000);
     Serial.println("Tokei firmware booting");
+
+    pinMode(KEY_PIN, INPUT_PULLUP);
 
     lvgl_setup_init();
     sensorsBegin();
@@ -67,6 +72,16 @@ void loop() {
 
     bool wifi_up = networkTick();
     g_sm.setWifiConnected(wifi_up);
+
+    // KEY button: single press triggers immediate refresh (debounce 500ms)
+    if (digitalRead(KEY_PIN) == LOW && (now_ms - g_last_key_ms) > 500) {
+        g_last_key_ms = now_ms;
+        Serial.println("KEY pressed: manual refresh");
+        if (wifi_up) {
+            fetchAndRender();
+            g_last_fetch_ms = now_ms;
+        }
+    }
 
     if (wifi_up && (now_ms - g_last_fetch_ms) >= TOKEI_POLL_INTERVAL_MS) {
         fetchAndRender();
