@@ -10,7 +10,7 @@ import httpx
 
 from .models import Event
 
-BATCH_SIZE = 500
+BATCH_SIZE = 50
 MAX_RETRIES = 4
 RETRY_BACKOFF_BASE = 1.0
 
@@ -44,11 +44,16 @@ class Uploader:
     def upload(self, events: Sequence[Event]) -> UploadResult:
         total_accepted = 0
         total_deduped = 0
-        for i in range(0, len(events), BATCH_SIZE):
+        total_batches = (len(events) + BATCH_SIZE - 1) // BATCH_SIZE
+        for batch_idx, i in enumerate(range(0, len(events), BATCH_SIZE)):
             batch = list(events[i : i + BATCH_SIZE])
+            if batch_idx > 0:
+                self.retry_sleep(1.0)
             result = self._upload_batch(batch)
             total_accepted += result.accepted
             total_deduped += result.deduped
+            if total_batches > 5 and (batch_idx + 1) % 10 == 0:
+                print(f"  progress: {batch_idx + 1}/{total_batches} batches")
         return UploadResult(accepted=total_accepted, deduped=total_deduped)
 
     def _upload_batch(self, batch: list[Event]) -> UploadResult:

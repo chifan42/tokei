@@ -89,14 +89,18 @@ def _event_from(
         except ValueError:
             ts = 0
 
+    # OpenAI/Codex: input_tokens ALREADY includes cached_input_tokens.
+    # Don't emit cached separately or the worker double-counts them.
+    raw_input = int(last_usage.get("input_tokens", 0) or 0)
+    raw_cached = int(last_usage.get("cached_input_tokens", 0) or 0)
     return Event(
         tool="codex",
         event_uuid=f"{session_id}:{index}",
         ts=ts,
         model=None,
-        input_tokens=int(last_usage.get("input_tokens", 0) or 0),
+        input_tokens=raw_input - raw_cached,
         output_tokens=int(last_usage.get("output_tokens", 0) or 0),
-        cached_input_tokens=int(last_usage.get("cached_input_tokens", 0) or 0),
+        cached_input_tokens=raw_cached,
         cache_creation_tokens=0,
         reasoning_output_tokens=int(last_usage.get("reasoning_output_tokens", 0) or 0),
     )
