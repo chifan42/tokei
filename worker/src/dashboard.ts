@@ -154,37 +154,25 @@ function render(d) {
     mLabels.innerHTML = d.weekly_trend.map(w => '<span>' + w.week_start.slice(5) + '</span>').join('')
   }
 
-  // Today tools
-  const todayEl = document.getElementById('tools-today')
-  todayEl.innerHTML = '<div style="font-size:10px;font-weight:700;letter-spacing:1px;color:var(--muted);margin-bottom:4px">TODAY BY TOOL</div>'
-  for (const t of d.today.tools) {
-    const div = document.createElement('div')
-    div.className = 'tool'
-    div.innerHTML = '<div class="tool-top">' +
-      '<span class="tool-name">' + (NAMES[t.name] || t.name) + '</span>' +
-      '<span class="tool-val">' + fmt(t.tokens) + '</span>' +
-      '</div>' +
-      '<div class="tool-usd">$' + t.usd.toFixed(2) + '</div>' +
-      '<div class="spark" id="spark-' + t.name + '"></div>'
-    todayEl.appendChild(div)
-    if (t.sparkline_7d) renderSpark('spark-' + t.name, t.sparkline_7d)
-  }
-
-  // Month tools
-  const monthEl = document.getElementById('tools-month')
-  if (d.month.tools && d.month.tools.length > 0) {
-    monthEl.innerHTML = '<div style="font-size:10px;font-weight:700;letter-spacing:1px;color:var(--muted);margin-bottom:4px">THIS MONTH BY TOOL</div>'
-    for (const t of d.month.tools) {
+  function renderToolSection(elId, label, tools, withSpark) {
+    const el = document.getElementById(elId)
+    if (!tools || !tools.length) { el.innerHTML = ''; return }
+    el.innerHTML = '<div style="font-size:10px;font-weight:700;letter-spacing:1px;color:var(--muted);margin-bottom:4px">' + label + '</div>'
+    for (const t of tools) {
       const div = document.createElement('div')
       div.className = 'tool'
+      const sparkHtml = withSpark ? '<div class="spark" id="spark-' + t.name + '"></div>' : ''
       div.innerHTML = '<div class="tool-top">' +
         '<span class="tool-name">' + (NAMES[t.name] || t.name) + '</span>' +
         '<span class="tool-val">' + fmt(t.tokens) + '</span>' +
-        '</div>' +
-        '<div class="tool-usd">$' + t.usd.toFixed(2) + '</div>'
-      monthEl.appendChild(div)
+        '</div><div class="tool-usd">$' + t.usd.toFixed(2) + '</div>' + sparkHtml
+      el.appendChild(div)
+      if (withSpark && t.sparkline_7d) renderSpark('spark-' + t.name, t.sparkline_7d)
     }
   }
+
+  renderToolSection('tools-today', 'TODAY BY TOOL', d.today.tools, true)
+  renderToolSection('tools-month', 'THIS MONTH BY TOOL', d.month.tools, false)
 
   const q = d.quote
   document.getElementById('quote').innerHTML =

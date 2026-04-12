@@ -1,20 +1,23 @@
 import { sql } from 'drizzle-orm'
 import type { Db } from './events'
 
+const SHANGHAI_OFFSET_SEC = 8 * 3600
+const SECS_PER_DAY = 86400
+const TOKEN_SUM = sql.raw(
+  'input_tokens + output_tokens + cached_input_tokens + cache_creation_tokens + reasoning_output_tokens',
+)
+
 export type TodayResult = {
   total_tokens: number
   total_usd: number
   tools: { name: 'claude_code' | 'codex' | 'cursor' | 'gemini'; tokens: number; usd: number }[]
 }
 
-/** Returns start-of-day unix seconds for the timezone, given a "now" timestamp. */
 export function startOfDay(now: number, tz: string): number {
-  if (tz !== 'Asia/Shanghai') {
-    throw new Error(`Unsupported timezone: ${tz}. MVP only handles Asia/Shanghai.`)
-  }
-  const offsetSec = 8 * 3600
+  assertShanghai(tz)
+  const offsetSec = SHANGHAI_OFFSET_SEC
   const local = now + offsetSec
-  const localDayStart = local - (local % 86400)
+  const localDayStart = local - (local % SECS_PER_DAY)
   return localDayStart - offsetSec
 }
 
@@ -31,7 +34,7 @@ export async function aggregateToday(db: Db, now: number, tz: string): Promise<T
     sql`
       SELECT
         tool,
-        CAST(COALESCE(SUM(input_tokens + output_tokens + cached_input_tokens + cache_creation_tokens + reasoning_output_tokens), 0) AS INTEGER) AS tokens,
+        CAST(COALESCE(SUM(${TOKEN_SUM}), 0) AS INTEGER) AS tokens,
         COALESCE(SUM(usd_cost), 0) AS usd
       FROM events
       WHERE ts >= ${todayStart}
@@ -49,11 +52,15 @@ export async function aggregateToday(db: Db, now: number, tz: string): Promise<T
 export type MonthResult = { total_tokens: number; total_usd: number }
 
 /** Returns start-of-month unix seconds for the timezone. */
-export function startOfMonth(now: number, tz: string): number {
+function assertShanghai(tz: string): void {
   if (tz !== 'Asia/Shanghai') {
     throw new Error(`Unsupported timezone: ${tz}. MVP only handles Asia/Shanghai.`)
   }
-  const offsetSec = 8 * 3600
+}
+
+export function startOfMonth(now: number, tz: string): number {
+  assertShanghai(tz)
+  const offsetSec = SHANGHAI_OFFSET_SEC
   const localMs = (now + offsetSec) * 1000
   const d = new Date(localMs)
   const firstUtcMs = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1)
@@ -67,7 +74,7 @@ export async function aggregateMonth(db: Db, now: number, tz: string): Promise<M
   const row = await db.get<{ tokens: number; usd: number }>(
     sql`
       SELECT
-        CAST(COALESCE(SUM(input_tokens + output_tokens + cached_input_tokens + cache_creation_tokens + reasoning_output_tokens), 0) AS INTEGER) AS tokens,
+        CAST(COALESCE(SUM(${TOKEN_SUM}), 0) AS INTEGER) AS tokens,
         COALESCE(SUM(usd_cost), 0) AS usd
       FROM events
       WHERE ts >= ${monthStart}
@@ -77,7 +84,7 @@ export async function aggregateMonth(db: Db, now: number, tz: string): Promise<M
     sql`
       SELECT
         tool,
-        CAST(COALESCE(SUM(input_tokens + output_tokens + cached_input_tokens + cache_creation_tokens + reasoning_output_tokens), 0) AS INTEGER) AS tokens,
+        CAST(COALESCE(SUM(${TOKEN_SUM}), 0) AS INTEGER) AS tokens,
         COALESCE(SUM(usd_cost), 0) AS usd
       FROM events
       WHERE ts >= ${monthStart}
@@ -100,7 +107,7 @@ export async function weeklyTrend(db: Db, now: number, tz: string): Promise<Week
     sql`
       SELECT
         date(ts, 'unixepoch', '+8 hours', 'weekday 0', '-6 days') AS week_start,
-        CAST(COALESCE(SUM(input_tokens + output_tokens + cached_input_tokens + cache_creation_tokens + reasoning_output_tokens), 0) AS INTEGER) AS tokens,
+        CAST(COALESCE(SUM(${TOKEN_SUM}), 0) AS INTEGER) AS tokens,
         COALESCE(SUM(usd_cost), 0) AS usd
       FROM events
       WHERE ts >= ${sevenWeeksAgo}
@@ -120,7 +127,7 @@ export async function sparkline7d(db: Db, now: number, tz: string): Promise<numb
     sql`
       SELECT
         CAST((ts - ((ts + 28800) % 86400)) AS INTEGER) AS day_start,
-        CAST(COALESCE(SUM(input_tokens + output_tokens + cached_input_tokens + cache_creation_tokens + reasoning_output_tokens), 0) AS INTEGER) AS tokens
+        CAST(COALESCE(SUM(${TOKEN_SUM}), 0) AS INTEGER) AS tokens
       FROM events
       WHERE ts >= ${sixDaysAgoStart}
       GROUP BY day_start
@@ -150,7 +157,7 @@ export async function sparkline7dPerTool(db: Db, now: number, tz: string): Promi
       SELECT
         tool,
         CAST((ts - ((ts + 28800) % 86400)) AS INTEGER) AS day_start,
-        CAST(COALESCE(SUM(input_tokens + output_tokens + cached_input_tokens + cache_creation_tokens + reasoning_output_tokens), 0) AS INTEGER) AS tokens
+        CAST(COALESCE(SUM(${TOKEN_SUM}), 0) AS INTEGER) AS tokens
       FROM events
       WHERE ts >= ${sixDaysAgoStart}
       GROUP BY tool, day_start

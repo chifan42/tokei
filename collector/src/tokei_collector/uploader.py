@@ -56,6 +56,11 @@ class Uploader:
                 print(f"  progress: {batch_idx + 1}/{total_batches} batches")
         return UploadResult(accepted=total_accepted, deduped=total_deduped)
 
+    def _get_client(self) -> httpx.Client:
+        if not hasattr(self, "_client") or self._client.is_closed:
+            self._client = httpx.Client(timeout=30.0)
+        return self._client
+
     def _upload_batch(self, batch: list[Event]) -> UploadResult:
         payload = {
             "device_id": self.device_id,
@@ -66,12 +71,11 @@ class Uploader:
         last_err: HttpError | None = None
         for attempt in range(MAX_RETRIES):
             try:
-                with httpx.Client(timeout=30.0) as client:
-                    response = client.post(
-                        f"{self.worker_url}/v1/ingest",
-                        json=payload,
-                        headers=headers,
-                    )
+                response = self._get_client().post(
+                    f"{self.worker_url}/v1/ingest",
+                    json=payload,
+                    headers=headers,
+                )
             except httpx.HTTPError as e:
                 last_err = HttpError(0, str(e))
                 self.retry_sleep(RETRY_BACKOFF_BASE * (2**attempt))

@@ -126,25 +126,30 @@ def _scan_dashboard_events(dashboard_token: str, watermark: dict[str, Any]) -> I
     page = 1
     new_events: list[Event] = []
 
-    while True:
+    try:
+        client = httpx.Client(timeout=30.0)
+    except httpx.HTTPError:
+        return
+
+    try:
+      while True:
         try:
-            with httpx.Client(timeout=30.0) as client:
-                resp = client.post(
-                    CURSOR_DASHBOARD_API,
-                    json={
-                        "teamId": 0,
-                        "startDate": start_ms,
-                        "endDate": end_ms,
-                        "page": page,
-                        "pageSize": 100,
-                    },
-                    cookies={"WorkosCursorSessionToken": dashboard_token},
-                    headers={
-                        "Content-Type": "application/json",
-                        "Origin": "https://cursor.com",
-                        "Referer": "https://cursor.com/dashboard/usage",
-                    },
-                )
+            resp = client.post(
+                CURSOR_DASHBOARD_API,
+                json={
+                    "teamId": 0,
+                    "startDate": start_ms,
+                    "endDate": end_ms,
+                    "page": page,
+                    "pageSize": 100,
+                },
+                cookies={"WorkosCursorSessionToken": dashboard_token},
+                headers={
+                    "Content-Type": "application/json",
+                    "Origin": "https://cursor.com",
+                    "Referer": "https://cursor.com/dashboard/usage",
+                },
+            )
             if resp.status_code != 200:
                 break
             data = resp.json()
@@ -200,6 +205,8 @@ def _scan_dashboard_events(dashboard_token: str, watermark: dict[str, Any]) -> I
         if page * 100 >= total:
             break
         page += 1
+    finally:
+        client.close()
 
     watermark["dashboard_seen"] = sorted(seen_ts)
     watermark["dashboard_last_ts"] = max_ts_seen
