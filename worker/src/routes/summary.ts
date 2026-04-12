@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm'
-import { aggregateToday, aggregateMonth, sparkline7d, sparkline7dPerTool } from '../db/aggregate'
+import { aggregateToday, aggregateMonth, sparkline7d, sparkline7dPerTool, monthlyTrend } from '../db/aggregate'
 import { getDailyQuote } from '../db/quotes'
 import type { Db } from '../db/events'
 import type { SummaryResponse } from '../contract'
@@ -9,11 +9,12 @@ export type SummaryDeps = { db: Db; now: number; tz: string }
 export async function summaryHandler(deps: SummaryDeps): Promise<SummaryResponse> {
   const { db, now, tz } = deps
 
-  const [today, month, sparkline, toolSparklines, fallbackTokens] = await Promise.all([
+  const [today, month, sparkline, toolSparklines, trend, fallbackTokens] = await Promise.all([
     aggregateToday(db, now, tz),
     aggregateMonth(db, now, tz),
     sparkline7d(db, now, tz),
     sparkline7dPerTool(db, now, tz),
+    monthlyTrend(db, now, tz),
     sumFallbackPricedTokensToday(db, now, tz),
   ])
 
@@ -35,6 +36,7 @@ export async function summaryHandler(deps: SummaryDeps): Promise<SummaryResponse
       tools: month.tools.map((t) => ({ name: t.name, tokens: t.tokens, usd: round2(t.usd) })),
     },
     sparkline_7d: sparkline,
+    monthly_trend: trend,
     quote: { text: quote.text, attr: quote.attr ?? '', category: quote.category, lang: quote.lang },
     sync_ts: now,
     fallback_priced_tokens: fallbackTokens,

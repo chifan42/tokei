@@ -92,6 +92,25 @@ export async function aggregateMonth(db: Db, now: number, tz: string): Promise<M
   }
 }
 
+export type MonthlyTrendPoint = { day: string; tokens: number; usd: number }
+
+export async function monthlyTrend(db: Db, now: number, tz: string): Promise<MonthlyTrendPoint[]> {
+  const monthStart = startOfMonth(now, tz)
+  const rows = await db.all<{ day: string; tokens: number; usd: number }>(
+    sql`
+      SELECT
+        date(ts, 'unixepoch', '+8 hours') AS day,
+        CAST(COALESCE(SUM(input_tokens + output_tokens + cached_input_tokens + cache_creation_tokens + reasoning_output_tokens), 0) AS INTEGER) AS tokens,
+        COALESCE(SUM(usd_cost), 0) AS usd
+      FROM events
+      WHERE ts >= ${monthStart}
+      GROUP BY day
+      ORDER BY day
+    `,
+  )
+  return rows.map((r) => ({ day: r.day, tokens: r.tokens, usd: Math.round(r.usd * 100) / 100 }))
+}
+
 /** Returns 7 k-token values, oldest first. Missing days are filled with 0. */
 export async function sparkline7d(db: Db, now: number, tz: string): Promise<number[]> {
   const todayStart = startOfDay(now, tz)

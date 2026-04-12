@@ -89,6 +89,14 @@ export function dashboardHtml(): string {
     </div>
   </div>
 
+  <div class="spark-row">
+    <div class="spark-card">
+      <div class="title"><span>Monthly Trend</span><span id="month-trend-total"></span></div>
+      <div class="spark" id="spark-month" style="height:60px"></div>
+      <div class="spark-labels" id="month-labels" style="font-size:7px"></div>
+    </div>
+  </div>
+
   <div class="tools" id="tools-today"></div>
 
   <div class="tools" id="tools-month" style="margin-top:4px"></div>
@@ -135,6 +143,16 @@ function render(d) {
   document.getElementById('spark-avg').textContent = 'avg ' + fmt(avg * 1000) + '/day'
   renderSpark('spark-global', d.sparkline_7d)
   renderSparkLabels('spark-labels', d.sync_ts)
+
+  // Monthly trend
+  if (d.monthly_trend && d.monthly_trend.length > 0) {
+    const mTokens = d.monthly_trend.map(p => p.tokens)
+    const mTotal = mTokens.reduce((a, b) => a + b, 0)
+    document.getElementById('month-trend-total').textContent = fmt(mTotal) + ' total'
+    renderSpark('spark-month', mTokens)
+    const mLabels = document.getElementById('month-labels')
+    mLabels.innerHTML = d.monthly_trend.map(p => '<span>' + p.day.slice(5) + '</span>').join('')
+  }
 
   // Today tools
   const todayEl = document.getElementById('tools-today')
