@@ -25,10 +25,22 @@ export async function summaryHandler(deps: SummaryDeps): Promise<SummaryResponse
     today: {
       total_tokens: today.total_tokens,
       total_usd: round2(today.total_usd),
-      tools: today.tools.map((t) => {
-        const ts = toolSparklines.find((s) => s.name === t.name)
-        return { name: t.name, tokens: t.tokens, usd: round2(t.usd), sparkline_7d: ts?.sparkline ?? [0,0,0,0,0,0,0] }
-      }),
+      tools: (() => {
+        // Include all tools that appear in either today or month, so firmware
+        // always shows all active tools (even if 0 today).
+        const todayMap = new Map(today.tools.map((t) => [t.name, t]))
+        const allNames = new Set([...today.tools.map((t) => t.name), ...month.tools.map((t) => t.name as typeof today.tools[number]['name'])])
+        return [...allNames].map((name) => {
+          const t = todayMap.get(name)
+          const ts = toolSparklines.find((s) => s.name === name)
+          return {
+            name: name as typeof today.tools[number]['name'],
+            tokens: t?.tokens ?? 0,
+            usd: round2(t?.usd ?? 0),
+            sparkline_7d: ts?.sparkline ?? [0, 0, 0, 0, 0, 0, 0],
+          }
+        }).sort((a, b) => b.tokens - a.tokens)
+      })(),
     },
     month: {
       total_tokens: month.total_tokens,
