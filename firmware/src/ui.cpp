@@ -245,8 +245,8 @@ void uiRender(const TokeiSummary& s,
         lv_obj_set_style_text_align(val_lbl, LV_TEXT_ALIGN_RIGHT, 0);
         lv_obj_set_pos(val_lbl, pad_x, ry + 24);
 
-        // Mini sparkline (below number, near bottom of row)
-        int spark_y = ry + row_h - spark_bar_h - 6;
+        // Mini sparkline (fixed distance below number, not anchored to row bottom)
+        int spark_y = ry + 50;
         int ts_max = 1;
         for (int j = 0; j < 7; j++) {
             if (s.tools[i].sparkline_7d[j] > ts_max)
