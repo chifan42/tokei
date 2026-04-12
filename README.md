@@ -1,79 +1,137 @@
 # Tokei
 
-AI token usage ambient display. Reads token usage from local AI tool logs, uploads to a Cloudflare Worker, renders a summary on an e-ink screen.
+AI token usage ambient display. Aggregates token consumption across multiple AI coding tools and renders a live summary on a 4.2" reflective LCD, a web dashboard, or both.
+
+![Tokei](https://img.shields.io/badge/status-running-brightgreen)
+
+## What it does
+
+- Collects token usage from **Claude Code**, **Codex**, **Cursor**, and **Gemini CLI** across multiple devices
+- Uploads events to a Cloudflare Worker backed by D1 (SQLite)
+- Displays today/month totals, per-tool breakdown, 7-day sparkline, and a daily quote on a Waveshare ESP32-S3-RLCD-4.2 e-ink-like screen
+- Web dashboard at `/dashboard` with weekly trends and tool breakdown
+
+## Architecture
+
+```
+Devices (N)          Cloudflare           Display
+┌──────────┐         ┌──────────┐         ┌──────────┐
+│ collector │──POST──>│  Worker  │<──GET───│ ESP32-S3 │
+│ (Python)  │ /ingest │  + D1    │ /summary│ RLCD 4.2"│
+└──────────┘         └──────────┘         └──────────┘
+                          │
+                     /dashboard
+                     (web browser)
+```
 
 ## Subsystems
 
-- `worker/` · Cloudflare Worker + D1 backend (TypeScript)
-- `collector/` · Per-device log collector (Python, not yet implemented)
-- `firmware/` · ESP32-S3 RLCD firmware (Arduino + LVGL, not yet implemented)
+### `worker/` · Cloudflare Worker (TypeScript)
 
-## Spec
+API server with two routes (`POST /v1/ingest`, `GET /v1/summary`), a web dashboard at `/dashboard`, and a daily cron that syncs model prices from LiteLLM.
 
-See `docs/superpowers/specs/2026-04-11-tokei-design.md`.
+- **Stack**: TypeScript, Drizzle ORM, Cloudflare D1, oRPC, zod
+- **Deploy**: `cd worker && pnpm run ship`
 
-## Manual Deploy Steps
+### `collector/` · Log Collector (Python)
 
-The following steps require interactive Cloudflare authentication and must be run manually:
+Runs on each device via launchd (macOS) or systemd (Linux). Parses local tool logs, uploads events to the worker.
 
-1. **Login to Cloudflare:**
-   ```bash
-   cd worker && npx wrangler login
-   ```
+- **Stack**: Python 3.11+, uv, httpx, ruff, pyright
+- **Supported tools**:
+  - **Claude Code**: `~/.claude/projects/<proj>/<session>.jsonl`
+  - **Codex**: `~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl`
+  - **Cursor**: local bubble history + dashboard API (`cursor.com/api/dashboard/get-filtered-usage-events`)
+  - **Gemini CLI**: OTLP telemetry log (requires `telemetry.enabled=true` in `~/.gemini/settings.json`)
 
-2. **Create the D1 database:**
-   ```bash
-   cd worker && pnpm wrangler d1 create tokei
-   ```
-   Copy the `database_id` UUID from the output.
+### `firmware/` · ESP32-S3 Firmware (C++/Arduino)
 
-3. **Update `worker/wrangler.toml`:** Replace `PLACEHOLDER_WILL_BE_SET_AT_DEPLOY` with the real database UUID.
+Pulls `/v1/summary` every 15 minutes and renders on the 400x300 reflective LCD using LVGL v9.
 
-4. **Apply migrations locally (dry run):**
-   ```bash
-   cd worker && pnpm db:migrate:local
-   ```
+- **Stack**: PlatformIO, Arduino framework, LVGL v9, ArduinoJson
+- **Board**: Waveshare ESP32-S3-RLCD-4.2 (ST7305 driver)
+- **Flash**: `cd firmware && pio run -e esp32s3 -t upload`
 
-5. **Set the bearer token secret:**
-   ```bash
-   cd worker && pnpm wrangler secret put TOKEI_BEARER_TOKEN
-   # Enter a long random string when prompted
-   ```
+## Quick Start
 
-6. **Deploy the worker:**
-   ```bash
-   cd worker && pnpm deploy
-   ```
+### 1. Deploy the Worker
 
-7. **Apply migrations to remote D1:**
-   ```bash
-   cd worker && pnpm db:migrate:prod
-   ```
+```bash
+cd worker
+pnpm install
+pnpm wrangler login
+pnpm wrangler d1 create tokei
+# Update wrangler.toml with the database_id
+pnpm wrangler secret put TOKEI_BEARER_TOKEN
+pnpm run ship
+pnpm db:migrate:prod
+```
 
-8. **Smoke test with curl:**
-   ```bash
-   TOKEI_URL=https://tokei-worker.<your-subdomain>.workers.dev
-   TOKEN=<bearer token you set>
+### 2. Install Collector (per device)
 
-   # Should 401 without token
-   curl -i -X GET "$TOKEI_URL/v1/summary"
+```bash
+cd collector
+uv sync
+uv run tokei-collect init    # interactive config
+uv run tokei-collect run     # test once
+uv run tokei-collect doctor  # verify
+```
 
-   # Should 200 with token
-   curl -i -H "Authorization: Bearer $TOKEN" "$TOKEI_URL/v1/summary"
+Install as a timer:
+```bash
+uv run tokei-collect install --launchd   # macOS
+uv run tokei-collect install --systemd   # Linux
+```
 
-   # Ingest a test event
-   curl -i -X POST "$TOKEI_URL/v1/ingest" \
-     -H "Authorization: Bearer $TOKEN" \
-     -H "Content-Type: application/json" \
-     -d '{"device_id":"smoke","events":[{"tool":"claude_code","event_uuid":"smoke-1","ts":'$(date +%s)',"model":"claude-sonnet-4-5","input_tokens":1000,"output_tokens":500,"cached_input_tokens":0,"cache_creation_tokens":0,"reasoning_output_tokens":0}]}'
-   ```
+### 3. Configuration
 
-9. **Trigger cron manually to populate prices:**
-   ```bash
-   cd worker && pnpm wrangler cron trigger tokei-worker
-   ```
+`~/.tokei/config.toml`:
 
-10. **Commit the real database_id:**
-    ```bash
-    git add worker/wrangler.toml && git commit -m "chore(worker): wire deployed d1 database id"
-    ```
+```toml
+device_id = "my-mac"
+worker_url = "https://tokei-worker.<subdomain>.workers.dev"
+bearer_token = "your-token-here"
+
+[parsers]
+enabled = ["claude_code", "codex", "cursor"]
+
+[parsers.cursor]
+# Get from browser cookies at cursor.com (WorkosCursorSessionToken value)
+dashboard_token = "user_XXXX::eyJhbG..."
+
+[parsers.gemini]
+outfile = "~/.gemini/telemetry.log"
+```
+
+### 4. Flash Firmware (optional)
+
+```bash
+cd firmware
+cp include/config.h.example include/config.h
+# Edit config.h with your worker URL and bearer token
+pio run -e esp32s3 -t upload
+```
+
+On first boot, connect to the "Tokei-Setup" WiFi AP from your phone to configure WiFi.
+
+### 5. Web Dashboard
+
+Open `https://tokei-worker.<subdomain>.workers.dev/dashboard` and enter your bearer token.
+
+## Data Sources
+
+| Tool | Source | Auth |
+|------|--------|------|
+| Claude Code | Local JSONL (`~/.claude/projects/`) | None (local files) |
+| Codex | Local JSONL (`~/.codex/sessions/`) | None (local files) |
+| Cursor (historical) | Local SQLite (`state.vscdb`) | None (local files) |
+| Cursor (recent) | Dashboard API (`cursor.com`) | WorkosCursorSessionToken cookie |
+| Gemini CLI | Local OTLP log | None (requires telemetry opt-in) |
+
+## Pricing
+
+Token costs are computed using the [LiteLLM model price table](https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json), synced daily via cron. Unknown models fall back to `claude-opus-4-6` pricing (conservative overestimate).
+
+## License
+
+MIT
