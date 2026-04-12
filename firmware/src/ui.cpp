@@ -229,16 +229,15 @@ void uiRender(const TokeiSummary& s,
         lv_obj_set_style_text_font(name, &lv_font_montserrat_16, 0);
         lv_obj_set_pos(name, pad_x, row_y + pad_y);
 
-        // Token number (top-right of row)
+        // Token number (top-right of row, right-aligned within container)
         char val[16];
         formatCompact(s.tools[i].today_tokens, val, sizeof(val));
         lv_obj_t* val_lbl = lv_label_create(right);
         lv_label_set_text(val_lbl, val);
         lv_obj_set_style_text_font(val_lbl, &lv_font_montserrat_28, 0);
-        lv_obj_set_pos(val_lbl, 241 - pad_x, row_y + pad_y - 4);
+        lv_obj_set_width(val_lbl, 140);
         lv_obj_set_style_text_align(val_lbl, LV_TEXT_ALIGN_RIGHT, 0);
-        lv_obj_set_width(val_lbl, 130);
-        lv_obj_set_style_text_align(val_lbl, LV_TEXT_ALIGN_RIGHT, 0);
+        lv_obj_set_pos(val_lbl, 241 - pad_x - 140, row_y + pad_y - 4);
 
         // Mini 7-day sparkline (below the name+number row)
         int spark_y = row_y + pad_y + 30;
