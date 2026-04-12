@@ -12,7 +12,11 @@ namespace tokei {
 static lv_obj_t* root = nullptr;
 
 static void formatCompact(int64_t tokens, char* out, size_t len) {
-    if (tokens >= 1'000'000) {
+    if (tokens >= 100'000'000) {
+        snprintf(out, len, "%.0fM", tokens / 1'000'000.0f);
+    } else if (tokens >= 10'000'000) {
+        snprintf(out, len, "%.1fM", tokens / 1'000'000.0f);
+    } else if (tokens >= 1'000'000) {
         snprintf(out, len, "%.2fM", tokens / 1'000'000.0f);
     } else if (tokens >= 1000) {
         snprintf(out, len, "%lldk", static_cast<long long>(tokens / 1000));
@@ -220,27 +224,29 @@ void uiRender(const TokeiSummary& s,
     int pad_y = 8;
     int spark_bar_h = 22;
 
+    // Vertical layout per row: name (16px) → number (28px, right-aligned) → sparkline (20px)
+    // With 87px per row (2 tools): name y+6, number y+22, sparkline y+54
     for (uint8_t i = 0; i < s.tool_count; i++) {
-        int row_y = i * row_h;
+        int ry = i * row_h;
 
-        // Tool name (top-left of row)
+        // Line 1: tool name
         lv_obj_t* name = lv_label_create(right);
         lv_label_set_text(name, displayName(s.tools[i].name));
         lv_obj_set_style_text_font(name, &lv_font_montserrat_16, 0);
-        lv_obj_set_pos(name, pad_x, row_y + pad_y);
+        lv_obj_set_pos(name, pad_x, ry + 6);
 
-        // Token number (top-right of row, right-aligned within container)
+        // Line 2: big token number, right-aligned
         char val[16];
         formatCompact(s.tools[i].today_tokens, val, sizeof(val));
         lv_obj_t* val_lbl = lv_label_create(right);
         lv_label_set_text(val_lbl, val);
         lv_obj_set_style_text_font(val_lbl, &lv_font_montserrat_28, 0);
-        lv_obj_set_width(val_lbl, 140);
+        lv_obj_set_width(val_lbl, 221);
         lv_obj_set_style_text_align(val_lbl, LV_TEXT_ALIGN_RIGHT, 0);
-        lv_obj_set_pos(val_lbl, 241 - pad_x - 140, row_y + pad_y - 4);
+        lv_obj_set_pos(val_lbl, pad_x, ry + 24);
 
-        // Mini 7-day sparkline (below the name+number row)
-        int spark_y = row_y + pad_y + 30;
+        // Line 3: mini sparkline
+        int spark_y = ry + 56;
         int ts_max = 1;
         for (int j = 0; j < 7; j++) {
             if (s.tools[i].sparkline_7d[j] > ts_max)
@@ -248,12 +254,12 @@ void uiRender(const TokeiSummary& s,
         }
         for (int j = 0; j < 7; j++) {
             int bh = (s.tools[i].sparkline_7d[j] > 0)
-                ? 2 + (s.tools[i].sparkline_7d[j] * (spark_bar_h - 2)) / ts_max
+                ? 2 + (s.tools[i].sparkline_7d[j] * 18) / ts_max
                 : 0;
             if (bh > 0) {
                 lv_obj_t* sb = lv_obj_create(right);
                 lv_obj_set_size(sb, 10, bh);
-                lv_obj_set_pos(sb, pad_x + j * 14, spark_y + spark_bar_h - bh);
+                lv_obj_set_pos(sb, pad_x + j * 14, spark_y + 20 - bh);
                 lv_obj_set_style_bg_color(sb, lv_color_black(), 0);
                 lv_obj_set_style_border_width(sb, 0, 0);
                 lv_obj_set_style_pad_all(sb, 0, 0);
