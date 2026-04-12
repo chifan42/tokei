@@ -57,6 +57,31 @@ def _find_cursor_db(home: Path) -> Path | None:
     return None
 
 
+def _build_composer_ts_map(conn: sqlite3.Connection) -> dict[str, int]:
+    """Build bubbleId → unix timestamp from composerData's lastUpdatedAt/createdAt."""
+    bubble_ts: dict[str, int] = {}
+    cur = conn.execute("SELECT value FROM cursorDiskKV WHERE key LIKE 'composerData:%'")
+    for (raw,) in cur:
+        text = raw.decode("utf-8", errors="replace") if isinstance(raw, bytes) else str(raw)
+        try:
+            c = json.loads(text)
+        except json.JSONDecodeError:
+            continue
+        ts_ms = c.get("lastUpdatedAt") or c.get("createdAt")
+        if not isinstance(ts_ms, int | float) or ts_ms < _MIN_VALID_TS * 1000:
+            continue
+        headers = c.get("fullConversationHeadersOnly", [])
+        if not isinstance(headers, list):
+            continue
+        for h_raw in cast(list[Any], headers):
+            if isinstance(h_raw, dict):
+                h_obj = cast(dict[str, Any], h_raw)
+                bid = h_obj.get("bubbleId")
+                if isinstance(bid, str) and bid:
+                    bubble_ts[bid] = int(ts_ms // 1000)
+    return bubble_ts
+
+
 def _scan_local_bubbles(db_path: Any, watermark: dict[str, Any]) -> Iterator[Event]:
     seen_uuids: set[str] = set(cast(list[str], watermark.setdefault("seen_uuids", [])))
 
@@ -66,6 +91,7 @@ def _scan_local_bubbles(db_path: Any, watermark: dict[str, Any]) -> Iterator[Eve
         return
 
     try:
+        composer_ts = _build_composer_ts_map(conn)
         cursor = conn.execute("SELECT value FROM cursorDiskKV WHERE key LIKE 'bubbleId:%'")
         for (raw,) in cursor:
             text = raw.decode("utf-8", errors="replace") if isinstance(raw, bytes) else str(raw)
@@ -73,7 +99,7 @@ def _scan_local_bubbles(db_path: Any, watermark: dict[str, Any]) -> Iterator[Eve
                 obj = json.loads(text)
             except json.JSONDecodeError:
                 continue
-            event = _extract_bubble_event(cast(dict[str, Any], obj), seen_uuids)
+            event = _extract_bubble_event(cast(dict[str, Any], obj), seen_uuids, composer_ts)
             if event is not None:
                 seen_uuids.add(event.event_uuid)
                 yield event
@@ -163,7 +189,9 @@ def _scan_api_usage(access_token: str, watermark: dict[str, Any]) -> Iterator[Ev
         )
 
 
-def _extract_bubble_event(obj: dict[str, Any], seen: set[str]) -> Event | None:
+def _extract_bubble_event(
+    obj: dict[str, Any], seen: set[str], composer_ts: dict[str, int] | None = None
+) -> Event | None:
     token_count_raw = obj.get("tokenCount")
     if not isinstance(token_count_raw, dict):
         return None
@@ -180,6 +208,11 @@ def _extract_bubble_event(obj: dict[str, Any], seen: set[str]) -> Event | None:
         return None
 
     ts = _extract_ts(obj)
+    # Fall back to composerData's lastUpdatedAt/createdAt
+    if ts is None and composer_ts is not None:
+        bubble_id = obj.get("bubbleId")
+        if isinstance(bubble_id, str) and bubble_id in composer_ts:
+            ts = composer_ts[bubble_id]
     if ts is None:
         return None
 
