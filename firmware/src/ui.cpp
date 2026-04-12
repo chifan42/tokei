@@ -188,16 +188,25 @@ void uiRender(const TokeiSummary& s,
     lv_label_set_text(month_lbl, month_str);
     lv_obj_set_pos(month_lbl, 0, 98);
 
-    // Sparkline as 7 rectangles at bottom of left column
-    int spark_max = 1;
-    for (int i = 0; i < 7; i++) if (s.sparkline_7d[i] > spark_max) spark_max = s.sparkline_7d[i];
-    for (int i = 0; i < 7; i++) {
-        lv_obj_t* bar_i = lv_obj_create(left);
-        int h = 2 + (s.sparkline_7d[i] * 18) / spark_max;
-        lv_obj_set_size(bar_i, 12, h);
-        lv_obj_set_pos(bar_i, i * 16, 140 - h);
-        lv_obj_set_style_bg_color(bar_i, lv_color_black(), 0);
-        lv_obj_set_style_border_width(bar_i, 0, 0);
+    // Sparkline: 7 sharp rectangles spanning the left column width
+    {
+        int spark_max = 1;
+        int left_w = 142;  // 158 - 2*8 padding
+        int gap = 2;
+        int bar_w = (left_w - 6 * gap) / 7;
+        for (int i = 0; i < 7; i++) if (s.sparkline_7d[i] > spark_max) spark_max = s.sparkline_7d[i];
+        for (int i = 0; i < 7; i++) {
+            int h = (s.sparkline_7d[i] > 0) ? 2 + (s.sparkline_7d[i] * 18) / spark_max : 0;
+            if (h > 0) {
+                lv_obj_t* bar_i = lv_obj_create(left);
+                lv_obj_set_size(bar_i, bar_w, h);
+                lv_obj_set_pos(bar_i, i * (bar_w + gap), 140 - h);
+                lv_obj_set_style_bg_color(bar_i, lv_color_black(), 0);
+                lv_obj_set_style_border_width(bar_i, 0, 0);
+                lv_obj_set_style_radius(bar_i, 0, 0);
+                lv_obj_set_style_pad_all(bar_i, 0, 0);
+            }
+        }
     }
 
     // Vertical separator between left and right
@@ -243,8 +252,11 @@ void uiRender(const TokeiSummary& s,
         lv_obj_set_style_text_align(val_lbl, LV_TEXT_ALIGN_RIGHT, 0);
         lv_obj_set_pos(val_lbl, 241 - pad_x - 100, ry + 8);
 
-        // Mini sparkline below the name+number line
+        // Mini sparkline: sharp rectangles spanning the tool row width
         int spark_y = ry + 34;
+        int right_content_w = 241 - 2 * pad_x;  // 221px
+        int tgap = 2;
+        int tbar_w = (right_content_w - 6 * tgap) / 7;  // ~29px per bar
         int ts_max = 1;
         for (int j = 0; j < 7; j++) {
             if (s.tools[i].sparkline_7d[j] > ts_max)
@@ -252,14 +264,15 @@ void uiRender(const TokeiSummary& s,
         }
         for (int j = 0; j < 7; j++) {
             int bh = (s.tools[i].sparkline_7d[j] > 0)
-                ? 2 + (s.tools[i].sparkline_7d[j] * 18) / ts_max
+                ? 2 + (s.tools[i].sparkline_7d[j] * spark_bar_h) / ts_max
                 : 0;
             if (bh > 0) {
                 lv_obj_t* sb = lv_obj_create(right);
-                lv_obj_set_size(sb, 10, bh);
-                lv_obj_set_pos(sb, pad_x + j * 14, spark_y + 20 - bh);
+                lv_obj_set_size(sb, tbar_w, bh);
+                lv_obj_set_pos(sb, pad_x + j * (tbar_w + tgap), spark_y + spark_bar_h - bh);
                 lv_obj_set_style_bg_color(sb, lv_color_black(), 0);
                 lv_obj_set_style_border_width(sb, 0, 0);
+                lv_obj_set_style_radius(sb, 0, 0);
                 lv_obj_set_style_pad_all(sb, 0, 0);
             }
         }
