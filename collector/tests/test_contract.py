@@ -14,7 +14,7 @@ import pytest
 
 from tokei_collector.models import Event
 
-FIXTURES_DIR = Path(__file__).parent.parent.parent / "fixtures" / "events"
+FIXTURES_DIR = Path(__file__).parent.parent.parent / "worker" / "test" / "fixtures" / "events"
 
 REQUIRED_FIELDS = {
     "tool",

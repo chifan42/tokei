@@ -38,3 +38,8 @@ coverage/
 
 # firmware secrets
 firmware/include/config.h
+
+# internal design docs
+docs/superpowers/
+pnpm-workspace.yaml
+/package.json
