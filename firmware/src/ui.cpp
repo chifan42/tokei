@@ -204,52 +204,68 @@ void uiRender(const TokeiSummary& s,
     lv_obj_set_style_border_width(vsep, 0, 0);
 
     // ========== RIGHT TOOL LIST ==========
+    // Each tool row: top line = name (left) + number (right), then sparkline below.
+    // Layout per mockup: 8px padding, row_h = 175/tool_count, sparkline 22px tall.
     lv_obj_t* right = lv_obj_create(root);
     lv_obj_set_size(right, 241, 175);
     lv_obj_set_pos(right, 159, 25);
     lv_obj_set_style_bg_color(right, lv_color_white(), 0);
     lv_obj_set_style_border_width(right, 0, 0);
-    lv_obj_set_style_pad_all(right, 6, 0);
+    lv_obj_set_style_pad_all(right, 0, 0);
 
-    uint8_t n = s.tool_count;
-    if (n == 0) n = 1;
-    int row_h = 175 / n;
+    uint8_t tc = s.tool_count;
+    if (tc == 0) tc = 1;
+    int row_h = 175 / tc;
+    int pad_x = 10;
+    int pad_y = 8;
+    int spark_bar_h = 22;
 
     for (uint8_t i = 0; i < s.tool_count; i++) {
+        int row_y = i * row_h;
+
+        // Tool name (top-left of row)
         lv_obj_t* name = lv_label_create(right);
         lv_label_set_text(name, displayName(s.tools[i].name));
         lv_obj_set_style_text_font(name, &lv_font_montserrat_16, 0);
-        lv_obj_set_pos(name, 0, i * row_h + 4);
+        lv_obj_set_pos(name, pad_x, row_y + pad_y);
 
+        // Token number (top-right of row)
         char val[16];
         formatCompact(s.tools[i].today_tokens, val, sizeof(val));
         lv_obj_t* val_lbl = lv_label_create(right);
         lv_label_set_text(val_lbl, val);
         lv_obj_set_style_text_font(val_lbl, &lv_font_montserrat_28, 0);
-        lv_obj_align(val_lbl, LV_ALIGN_TOP_RIGHT, -4, i * row_h);
+        lv_obj_set_pos(val_lbl, 241 - pad_x, row_y + pad_y - 4);
+        lv_obj_set_style_text_align(val_lbl, LV_TEXT_ALIGN_RIGHT, 0);
+        lv_obj_set_width(val_lbl, 130);
+        lv_obj_set_style_text_align(val_lbl, LV_TEXT_ALIGN_RIGHT, 0);
 
-        // Mini 7-day sparkline per tool (below the tool name)
+        // Mini 7-day sparkline (below the name+number row)
+        int spark_y = row_y + pad_y + 30;
         int ts_max = 1;
         for (int j = 0; j < 7; j++) {
             if (s.tools[i].sparkline_7d[j] > ts_max)
                 ts_max = s.tools[i].sparkline_7d[j];
         }
-        int spark_h = (row_h > 60) ? 20 : 12;
-        int spark_y = i * row_h + 22;
         for (int j = 0; j < 7; j++) {
-            int bh = 1 + (s.tools[i].sparkline_7d[j] * spark_h) / ts_max;
-            lv_obj_t* sb = lv_obj_create(right);
-            lv_obj_set_size(sb, 8, bh);
-            lv_obj_set_pos(sb, j * 12, spark_y + spark_h - bh);
-            lv_obj_set_style_bg_color(sb, lv_color_black(), 0);
-            lv_obj_set_style_border_width(sb, 0, 0);
-            lv_obj_set_style_pad_all(sb, 0, 0);
+            int bh = (s.tools[i].sparkline_7d[j] > 0)
+                ? 2 + (s.tools[i].sparkline_7d[j] * (spark_bar_h - 2)) / ts_max
+                : 0;
+            if (bh > 0) {
+                lv_obj_t* sb = lv_obj_create(right);
+                lv_obj_set_size(sb, 10, bh);
+                lv_obj_set_pos(sb, pad_x + j * 14, spark_y + spark_bar_h - bh);
+                lv_obj_set_style_bg_color(sb, lv_color_black(), 0);
+                lv_obj_set_style_border_width(sb, 0, 0);
+                lv_obj_set_style_pad_all(sb, 0, 0);
+            }
         }
 
+        // Row separator
         if (i < s.tool_count - 1) {
             lv_obj_t* row_sep = lv_obj_create(right);
-            lv_obj_set_size(row_sep, 229, 1);
-            lv_obj_set_pos(row_sep, 0, (i + 1) * row_h);
+            lv_obj_set_size(row_sep, 221, 1);
+            lv_obj_set_pos(row_sep, pad_x, (i + 1) * row_h);
             lv_obj_set_style_bg_color(row_sep, lv_color_black(), 0);
             lv_obj_set_style_border_width(row_sep, 0, 0);
         }
