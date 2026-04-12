@@ -87,6 +87,7 @@ def _read_access_token(db_path: Any) -> str | None:
 def _scan_api_usage(access_token: str, watermark: dict[str, Any]) -> Iterator[Event]:
     api_wm: dict[str, int] = cast(dict[str, int], watermark.setdefault("api_usage", {}))
     api_month: str = cast(str, watermark.get("api_month", ""))
+    first_run = len(api_wm) == 0 and not api_month
 
     try:
         with httpx.Client(timeout=15.0) as client:
@@ -125,6 +126,14 @@ def _scan_api_usage(access_token: str, watermark: dict[str, Any]) -> Iterator[Ev
 
         num_tokens = int(num_tokens_raw)
         prev = api_wm.get(model_key, 0)
+        api_wm[model_key] = num_tokens
+
+        if first_run:
+            # First run: record baseline without emitting events.
+            # Otherwise the entire billing-period aggregate (potentially
+            # millions of tokens) would appear as "today" usage.
+            continue
+
         if num_tokens <= prev:
             continue
 
@@ -132,9 +141,6 @@ def _scan_api_usage(access_token: str, watermark: dict[str, Any]) -> Iterator[Ev
         input_est = delta * 2 // 3
         output_est = delta - input_est
 
-        # Cursor's API returns billing-bucket names like "gpt-4" which don't
-        # map to actual model pricing. Tag with a synthetic model so the worker
-        # can apply a $0 subscription rate instead of per-token pricing.
         yield Event(
             tool="cursor",
             event_uuid=f"cursor-api-{model_key}-{now}",
@@ -143,8 +149,6 @@ def _scan_api_usage(access_token: str, watermark: dict[str, Any]) -> Iterator[Ev
             input_tokens=input_est,
             output_tokens=output_est,
         )
-
-        api_wm[model_key] = num_tokens
 
 
 def _extract_bubble_event(obj: dict[str, Any], seen: set[str]) -> Event | None:

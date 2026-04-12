@@ -30,6 +30,7 @@ export const summaryResponseSchema = z.object({
         name: toolEnum,
         tokens: z.number().int(),
         usd: z.number(),
+        sparkline_7d: z.array(z.number().int()).length(7),
       }),
     ),
   }),

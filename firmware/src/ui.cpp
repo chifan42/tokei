@@ -2,6 +2,7 @@
 #include "ui.h"
 #include <lvgl.h>
 #include <stdio.h>
+#include <string.h>
 #include <time.h>
 
 LV_FONT_DECLARE(noto_sans_cjk_14);
@@ -25,6 +26,14 @@ static void formatAge(int64_t seconds, char* out, size_t len) {
     if (seconds < 60) snprintf(out, len, "%llds", static_cast<long long>(seconds));
     else if (seconds < 3600) snprintf(out, len, "%lldm", static_cast<long long>(seconds / 60));
     else snprintf(out, len, "%lldh", static_cast<long long>(seconds / 3600));
+}
+
+static const char* displayName(const char* tool) {
+    if (strcmp(tool, "claude_code") == 0) return "Claude Code";
+    if (strcmp(tool, "cursor") == 0) return "Cursor";
+    if (strcmp(tool, "codex") == 0) return "Codex";
+    if (strcmp(tool, "gemini") == 0) return "Gemini";
+    return tool;
 }
 
 void uiInit() {
@@ -111,10 +120,42 @@ void uiRender(const TokeiSummary& s,
 
     lv_obj_t* today_lbl = lv_label_create(left);
     lv_label_set_text(today_lbl, "TODAY");
-    lv_obj_set_pos(today_lbl, 0, 0);
+    lv_obj_align(today_lbl, LV_ALIGN_TOP_LEFT, 0, 0);
+
+    // SYNC badge in the left hero area, top-right corner
+    char sync_buf[32];
+    char age_str[16];
+    formatAge(age_seconds, age_str, sizeof(age_str));
+    bool badge_error = (state == FirmwareState::FAIL_BADGE || state == FirmwareState::WIFI_OFF);
+    if (state == FirmwareState::FAIL_BADGE) {
+        snprintf(sync_buf, sizeof(sync_buf), "! FAIL %s", age_str);
+    } else if (state == FirmwareState::WIFI_OFF) {
+        snprintf(sync_buf, sizeof(sync_buf), "! NO WIFI");
+    } else {
+        snprintf(sync_buf, sizeof(sync_buf), "SYNC %s", age_str);
+    }
+    lv_obj_t* sync_lbl = lv_label_create(left);
+    lv_label_set_text(sync_lbl, sync_buf);
+    if (badge_error) {
+        lv_obj_t* sync_bg = lv_obj_create(left);
+        lv_obj_set_size(sync_bg, 80, 14);
+        lv_obj_align(sync_bg, LV_ALIGN_TOP_RIGHT, 0, 0);
+        lv_obj_set_style_bg_color(sync_bg, lv_color_black(), 0);
+        lv_obj_set_style_border_width(sync_bg, 0, 0);
+        lv_obj_set_style_pad_all(sync_bg, 0, 0);
+        lv_obj_t* err_lbl = lv_label_create(sync_bg);
+        lv_label_set_text(err_lbl, sync_buf);
+        lv_obj_set_style_text_color(err_lbl, lv_color_white(), 0);
+        lv_obj_center(err_lbl);
+        lv_obj_add_flag(sync_lbl, LV_OBJ_FLAG_HIDDEN);
+    } else {
+        lv_obj_align(sync_lbl, LV_ALIGN_TOP_RIGHT, 0, 0);
+    }
 
     char big[32];
-    if (s.today_total_tokens >= 1'000'000) {
+    if (s.today_total_tokens >= 100'000'000) {
+        snprintf(big, sizeof(big), "%.1f", s.today_total_tokens / 1'000'000.0f);
+    } else if (s.today_total_tokens >= 1'000'000) {
         snprintf(big, sizeof(big), "%.2f", s.today_total_tokens / 1'000'000.0f);
     } else {
         snprintf(big, sizeof(big), "%lldk", static_cast<long long>(s.today_total_tokens / 1000));
@@ -176,7 +217,8 @@ void uiRender(const TokeiSummary& s,
 
     for (uint8_t i = 0; i < s.tool_count; i++) {
         lv_obj_t* name = lv_label_create(right);
-        lv_label_set_text(name, s.tools[i].name);
+        lv_label_set_text(name, displayName(s.tools[i].name));
+        lv_obj_set_style_text_font(name, &lv_font_montserrat_16, 0);
         lv_obj_set_pos(name, 0, i * row_h + 4);
 
         char val[16];
@@ -185,6 +227,24 @@ void uiRender(const TokeiSummary& s,
         lv_label_set_text(val_lbl, val);
         lv_obj_set_style_text_font(val_lbl, &lv_font_montserrat_28, 0);
         lv_obj_align(val_lbl, LV_ALIGN_TOP_RIGHT, -4, i * row_h);
+
+        // Mini 7-day sparkline per tool (below the tool name)
+        int ts_max = 1;
+        for (int j = 0; j < 7; j++) {
+            if (s.tools[i].sparkline_7d[j] > ts_max)
+                ts_max = s.tools[i].sparkline_7d[j];
+        }
+        int spark_h = (row_h > 60) ? 20 : 12;
+        int spark_y = i * row_h + 22;
+        for (int j = 0; j < 7; j++) {
+            int bh = 1 + (s.tools[i].sparkline_7d[j] * spark_h) / ts_max;
+            lv_obj_t* sb = lv_obj_create(right);
+            lv_obj_set_size(sb, 8, bh);
+            lv_obj_set_pos(sb, j * 12, spark_y + spark_h - bh);
+            lv_obj_set_style_bg_color(sb, lv_color_black(), 0);
+            lv_obj_set_style_border_width(sb, 0, 0);
+            lv_obj_set_style_pad_all(sb, 0, 0);
+        }
 
         if (i < s.tool_count - 1) {
             lv_obj_t* row_sep = lv_obj_create(right);
@@ -232,38 +292,7 @@ void uiRender(const TokeiSummary& s,
     lv_label_set_text(attr, attr_str);
     lv_obj_align(attr, LV_ALIGN_BOTTOM_RIGHT, -4, -4);
 
-    // ========== ERROR BADGE OVERLAY ==========
-    const char* badge_text = nullptr;
-    char badge_buf[64];
-    char age_buf[16];
-    formatAge(age_seconds, age_buf, sizeof(age_buf));
-
-    if (state == FirmwareState::FAIL_BADGE) {
-        snprintf(badge_buf, sizeof(badge_buf), "! SYNC FAIL %s OLD", age_buf);
-        badge_text = badge_buf;
-    } else if (state == FirmwareState::WIFI_OFF) {
-        snprintf(badge_buf, sizeof(badge_buf), "! NO WIFI %s OLD", age_buf);
-        badge_text = badge_buf;
-    } else if (state == FirmwareState::OK || state == FirmwareState::STALE) {
-        snprintf(badge_buf, sizeof(badge_buf), "SYNC %s AGO", age_buf);
-        badge_text = badge_buf;
-    }
-
-    if (badge_text != nullptr) {
-        lv_obj_t* badge = lv_obj_create(root);
-        bool inverse = (state == FirmwareState::FAIL_BADGE || state == FirmwareState::WIFI_OFF);
-        int w = 160;
-        lv_obj_set_size(badge, w, 18);
-        lv_obj_set_pos(badge, 400 - w - 4, 28);
-        lv_obj_set_style_bg_color(badge, inverse ? lv_color_black() : lv_color_white(), 0);
-        lv_obj_set_style_border_width(badge, 0, 0);
-        lv_obj_set_style_pad_all(badge, 0, 0);
-
-        lv_obj_t* badge_lbl = lv_label_create(badge);
-        lv_label_set_text(badge_lbl, badge_text);
-        lv_obj_set_style_text_color(badge_lbl, inverse ? lv_color_white() : lv_color_black(), 0);
-        lv_obj_center(badge_lbl);
-    }
+    // SYNC badge is now rendered inside the left hero area (see above)
 }
 
 }  // namespace tokei

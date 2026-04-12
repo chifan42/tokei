@@ -39,6 +39,10 @@ bool parseSummary(const char* json, TokeiSummary& out) {
         out.tools[tool_count].today_usd = t["usd"].as<float>();
         out.tools[tool_count].month_tokens = 0;
         out.tools[tool_count].month_usd = 0;
+        JsonArrayConst toolSpark = t["sparkline_7d"].as<JsonArrayConst>();
+        for (int j = 0; j < 7; j++) {
+            out.tools[tool_count].sparkline_7d[j] = (j < (int)toolSpark.size()) ? toolSpark[j].as<int>() : 0;
+        }
         tool_count++;
     }
     out.tool_count = tool_count;

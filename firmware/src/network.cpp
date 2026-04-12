@@ -20,6 +20,19 @@ bool networkBegin(const char* ntp_server, const char* tz) {
     if (wifi_ok) {
         configTzTime(tz, ntp_server);
         Serial.printf("WiFi connected: %s\n", WiFi.SSID().c_str());
+        // Wait for NTP to actually sync (async operation).
+        // Without this, time() returns 0 and SYNC age shows as millions of hours.
+        Serial.print("NTP syncing");
+        for (int i = 0; i < 20; i++) {
+            time_t now = 0;
+            time(&now);
+            if (now > 1700000000) {
+                Serial.printf(" OK (%ld)\n", (long)now);
+                break;
+            }
+            Serial.print(".");
+            delay(500);
+        }
     } else {
         Serial.println("WiFi connect failed; will retry in loop");
     }

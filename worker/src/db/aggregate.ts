@@ -101,3 +101,43 @@ export async function sparkline7d(db: Db, now: number, tz: string): Promise<numb
   }
   return result
 }
+
+export type ToolSparkline = { name: string; sparkline: number[] }
+
+export async function sparkline7dPerTool(db: Db, now: number, tz: string): Promise<ToolSparkline[]> {
+  const todayStart = startOfDay(now, tz)
+  const sixDaysAgoStart = todayStart - 6 * 86400
+
+  const rows = await db.all<{ tool: string; day_start: number; tokens: number }>(
+    sql`
+      SELECT
+        tool,
+        CAST((ts - ((ts + 28800) % 86400)) AS INTEGER) AS day_start,
+        CAST(COALESCE(SUM(input_tokens + output_tokens + cached_input_tokens + cache_creation_tokens + reasoning_output_tokens), 0) AS INTEGER) AS tokens
+      FROM events
+      WHERE ts >= ${sixDaysAgoStart}
+      GROUP BY tool, day_start
+    `,
+  )
+
+  const byToolDay = new Map<string, Map<number, number>>()
+  const tools = new Set<string>()
+  for (const r of rows) {
+    tools.add(r.tool)
+    let dayMap = byToolDay.get(r.tool)
+    if (!dayMap) { dayMap = new Map(); byToolDay.set(r.tool, dayMap) }
+    dayMap.set(r.day_start, r.tokens)
+  }
+
+  const result: ToolSparkline[] = []
+  for (const tool of tools) {
+    const dayMap = byToolDay.get(tool) ?? new Map<number, number>()
+    const sparkline: number[] = []
+    for (let i = 6; i >= 0; i--) {
+      const dayStart = todayStart - i * 86400
+      sparkline.push(Math.round((dayMap.get(dayStart) ?? 0) / 1000))
+    }
+    result.push({ name: tool, sparkline })
+  }
+  return result
+}

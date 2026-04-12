@@ -3,6 +3,7 @@
 #include <lvgl.h>
 #include "config.h"
 #include "lvgl_setup.h"
+#include "lvgl_bsp.h"
 #include "network.h"
 #include "api.h"
 #include "sensors.h"
@@ -16,62 +17,72 @@ static StateMachine g_sm;
 static SensorReading g_sensors{};
 static uint32_t g_last_fetch_ms = 0;
 static uint32_t g_last_render_ms = 0;
-static bool g_first_fetch_done = false;
 
-static void fetchAndUpdate() {
+static void fetchAndRender() {
     int http_status = 0;
     ApiResult r = fetchSummary(TOKEI_WORKER_URL, TOKEI_BEARER_TOKEN, g_summary, &http_status);
     time_t now = networkNow();
     if (r == ApiResult::OK) {
         g_sm.onSyncSuccess(now);
-        g_first_fetch_done = true;
+        Serial.printf("sync OK: %lld tokens today\n", (long long)g_summary.today_total_tokens);
     } else {
         g_sm.onSyncFailure(now);
+        Serial.printf("sync FAIL: http=%d\n", http_status);
+    }
+    if (Lvgl_lock(1000)) {
+        g_sensors = sensorsRead();
+        int64_t age = g_sm.ageSeconds(networkNow());
+        uiRender(g_summary, g_sensors, g_sm.state(), age);
+        Lvgl_unlock();
     }
 }
 
 void setup() {
     Serial.begin(115200);
-    delay(100);
+    delay(2000);
     Serial.println("Tokei firmware booting");
 
     lvgl_setup_init();
     sensorsBegin();
-    uiInit();
 
-    // Show waiting screen before attempting WiFi
-    uiRender(g_summary, g_sensors, FirmwareState::FIRST_SYNC_PENDING, 0);
-    lvgl_setup_tick();
+    if (Lvgl_lock(-1)) {
+        uiInit();
+        uiRender(g_summary, g_sensors, FirmwareState::FIRST_SYNC_PENDING, 0);
+        Lvgl_unlock();
+    }
 
     bool wifi_up = networkBegin(TOKEI_NTP_SERVER, TOKEI_NTP_TZ);
     g_sm.setWifiConnected(wifi_up);
 
     if (wifi_up) {
-        fetchAndUpdate();
+        fetchAndRender();
     }
     g_last_fetch_ms = millis();
+    g_last_render_ms = millis();
+    Serial.println("setup done");
 }
 
 void loop() {
-    lvgl_setup_tick();
-
     uint32_t now_ms = millis();
 
     bool wifi_up = networkTick();
     g_sm.setWifiConnected(wifi_up);
 
     if (wifi_up && (now_ms - g_last_fetch_ms) >= TOKEI_POLL_INTERVAL_MS) {
-        fetchAndUpdate();
+        fetchAndRender();
         g_last_fetch_ms = now_ms;
     }
 
-    if ((now_ms - g_last_render_ms) >= 5000) {
-        g_sensors = sensorsRead();
-        int64_t age = g_sm.ageSeconds(networkNow());
-        uiRender(g_summary, g_sensors, g_sm.state(), age);
+    if ((now_ms - g_last_render_ms) >= 30000) {
+        if (Lvgl_lock(100)) {
+            g_sensors = sensorsRead();
+            int64_t age = g_sm.ageSeconds(networkNow());
+            uiRender(g_summary, g_sensors, g_sm.state(), age);
+            Lvgl_unlock();
+        }
         g_last_render_ms = now_ms;
     }
 
-    delay(5);
+    vTaskDelay(pdMS_TO_TICKS(50));
 }
-#endif  // UNIT_TEST
+#endif

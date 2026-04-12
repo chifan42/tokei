@@ -14,6 +14,7 @@ struct ToolEntry {
     int64_t month_tokens;
     float today_usd;
     float month_usd;
+    int sparkline_7d[7];
 };
 
 struct TokeiSummary {

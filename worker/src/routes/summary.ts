@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm'
-import { aggregateToday, aggregateMonth, sparkline7d } from '../db/aggregate'
+import { aggregateToday, aggregateMonth, sparkline7d, sparkline7dPerTool } from '../db/aggregate'
 import { getDailyQuote } from '../db/quotes'
 import type { Db } from '../db/events'
 import type { SummaryResponse } from '../contract'
@@ -9,10 +9,11 @@ export type SummaryDeps = { db: Db; now: number; tz: string }
 export async function summaryHandler(deps: SummaryDeps): Promise<SummaryResponse> {
   const { db, now, tz } = deps
 
-  const [today, month, sparkline, fallbackTokens] = await Promise.all([
+  const [today, month, sparkline, toolSparklines, fallbackTokens] = await Promise.all([
     aggregateToday(db, now, tz),
     aggregateMonth(db, now, tz),
     sparkline7d(db, now, tz),
+    sparkline7dPerTool(db, now, tz),
     sumFallbackPricedTokensToday(db, now, tz),
   ])
 
@@ -23,7 +24,10 @@ export async function summaryHandler(deps: SummaryDeps): Promise<SummaryResponse
     today: {
       total_tokens: today.total_tokens,
       total_usd: round2(today.total_usd),
-      tools: today.tools.map((t) => ({ name: t.name, tokens: t.tokens, usd: round2(t.usd) })),
+      tools: today.tools.map((t) => {
+        const ts = toolSparklines.find((s) => s.name === t.name)
+        return { name: t.name, tokens: t.tokens, usd: round2(t.usd), sparkline_7d: ts?.sparkline ?? [0,0,0,0,0,0,0] }
+      }),
     },
     month: { total_tokens: month.total_tokens, total_usd: round2(month.total_usd) },
     sparkline_7d: sparkline,
