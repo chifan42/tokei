@@ -224,29 +224,28 @@ void uiRender(const TokeiSummary& s,
     int pad_y = 8;
     int spark_bar_h = 22;
 
-    // Vertical layout per row: name (16px) → number (28px, right-aligned) → sparkline (20px)
-    // With 87px per row (2 tools): name y+6, number y+22, sparkline y+54
+    // Horizontal layout: name (16px left) + number (20px right) on same line, sparkline below
     for (uint8_t i = 0; i < s.tool_count; i++) {
         int ry = i * row_h;
 
-        // Line 1: tool name
+        // Tool name (left)
         lv_obj_t* name = lv_label_create(right);
         lv_label_set_text(name, displayName(s.tools[i].name));
         lv_obj_set_style_text_font(name, &lv_font_montserrat_16, 0);
-        lv_obj_set_pos(name, pad_x, ry + 6);
+        lv_obj_set_pos(name, pad_x, ry + pad_y + 2);
 
-        // Line 2: big token number, right-aligned
+        // Token number (right, same line)
         char val[16];
         formatCompact(s.tools[i].today_tokens, val, sizeof(val));
         lv_obj_t* val_lbl = lv_label_create(right);
         lv_label_set_text(val_lbl, val);
-        lv_obj_set_style_text_font(val_lbl, &lv_font_montserrat_28, 0);
-        lv_obj_set_width(val_lbl, 221);
+        lv_obj_set_style_text_font(val_lbl, &lv_font_montserrat_20, 0);
+        lv_obj_set_width(val_lbl, 120);
         lv_obj_set_style_text_align(val_lbl, LV_TEXT_ALIGN_RIGHT, 0);
-        lv_obj_set_pos(val_lbl, pad_x, ry + 24);
+        lv_obj_set_pos(val_lbl, 241 - pad_x - 120, ry + pad_y);
 
-        // Line 3: mini sparkline
-        int spark_y = ry + 56;
+        // Mini sparkline below
+        int spark_y = ry + pad_y + 28;
         int ts_max = 1;
         for (int j = 0; j < 7; j++) {
             if (s.tools[i].sparkline_7d[j] > ts_max)
@@ -293,10 +292,12 @@ void uiRender(const TokeiSummary& s,
 
     lv_obj_t* daily = lv_label_create(foot);
     lv_label_set_text(daily, "DAILY");
+    lv_obj_set_style_text_font(daily, &lv_font_montserrat_16, 0);
     lv_obj_align(daily, LV_ALIGN_TOP_LEFT, 0, 0);
 
     lv_obj_t* cat = lv_label_create(foot);
     lv_label_set_text(cat, s.quote_category);
+    lv_obj_set_style_text_font(cat, &lv_font_montserrat_16, 0);
     lv_obj_align(cat, LV_ALIGN_TOP_RIGHT, 0, 0);
 
     lv_obj_t* text = lv_label_create(foot);
@@ -304,7 +305,7 @@ void uiRender(const TokeiSummary& s,
     lv_obj_set_width(text, 384);
     lv_obj_set_style_text_font(text, &noto_sans_cjk_14, 0);
     lv_label_set_text(text, s.quote_text);
-    lv_obj_align(text, LV_ALIGN_TOP_LEFT, 0, 18);
+    lv_obj_align(text, LV_ALIGN_TOP_LEFT, 0, 20);
 
     lv_obj_t* attr = lv_label_create(foot);
     char attr_str[96];
