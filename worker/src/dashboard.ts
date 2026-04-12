@@ -91,7 +91,7 @@ export function dashboardHtml(): string {
 
   <div class="spark-row">
     <div class="spark-card">
-      <div class="title"><span>Monthly Trend</span><span id="month-trend-total"></span></div>
+      <div class="title"><span>Weekly Trend (7 weeks)</span><span id="month-trend-total"></span></div>
       <div class="spark" id="spark-month" style="height:60px"></div>
       <div class="spark-labels" id="month-labels" style="font-size:7px"></div>
     </div>
@@ -144,14 +144,14 @@ function render(d) {
   renderSpark('spark-global', d.sparkline_7d)
   renderSparkLabels('spark-labels', d.sync_ts)
 
-  // Monthly trend
-  if (d.monthly_trend && d.monthly_trend.length > 0) {
-    const mTokens = d.monthly_trend.map(p => p.tokens)
-    const mTotal = mTokens.reduce((a, b) => a + b, 0)
-    document.getElementById('month-trend-total').textContent = fmt(mTotal) + ' total'
-    renderSpark('spark-month', mTokens)
+  // Weekly trend (past 7 weeks)
+  if (d.weekly_trend && d.weekly_trend.length > 0) {
+    const wTokens = d.weekly_trend.map(w => w.tokens)
+    const wTotal = wTokens.reduce((a, b) => a + b, 0)
+    document.getElementById('month-trend-total').textContent = fmt(wTotal) + ' total'
+    renderSpark('spark-month', wTokens)
     const mLabels = document.getElementById('month-labels')
-    mLabels.innerHTML = d.monthly_trend.map(p => '<span>' + p.day.slice(5) + '</span>').join('')
+    mLabels.innerHTML = d.weekly_trend.map(w => '<span>' + w.week_start.slice(5) + '</span>').join('')
   }
 
   // Today tools

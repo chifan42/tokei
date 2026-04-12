@@ -139,7 +139,11 @@ def _scan_dashboard_events(dashboard_token: str, watermark: dict[str, Any]) -> I
                         "pageSize": 100,
                     },
                     cookies={"WorkosCursorSessionToken": dashboard_token},
-                    headers={"Content-Type": "application/json"},
+                    headers={
+                        "Content-Type": "application/json",
+                        "Origin": "https://cursor.com",
+                        "Referer": "https://cursor.com/dashboard/usage",
+                    },
                 )
             if resp.status_code != 200:
                 break

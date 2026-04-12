@@ -92,23 +92,23 @@ export async function aggregateMonth(db: Db, now: number, tz: string): Promise<M
   }
 }
 
-export type MonthlyTrendPoint = { day: string; tokens: number; usd: number }
+export type WeeklyTrendPoint = { week_start: string; tokens: number; usd: number }
 
-export async function monthlyTrend(db: Db, now: number, tz: string): Promise<MonthlyTrendPoint[]> {
-  const monthStart = startOfMonth(now, tz)
-  const rows = await db.all<{ day: string; tokens: number; usd: number }>(
+export async function weeklyTrend(db: Db, now: number, tz: string): Promise<WeeklyTrendPoint[]> {
+  const sevenWeeksAgo = startOfDay(now, tz) - 7 * 7 * 86400
+  const rows = await db.all<{ week_start: string; tokens: number; usd: number }>(
     sql`
       SELECT
-        date(ts, 'unixepoch', '+8 hours') AS day,
+        date(ts, 'unixepoch', '+8 hours', 'weekday 0', '-6 days') AS week_start,
         CAST(COALESCE(SUM(input_tokens + output_tokens + cached_input_tokens + cache_creation_tokens + reasoning_output_tokens), 0) AS INTEGER) AS tokens,
         COALESCE(SUM(usd_cost), 0) AS usd
       FROM events
-      WHERE ts >= ${monthStart}
-      GROUP BY day
-      ORDER BY day
+      WHERE ts >= ${sevenWeeksAgo}
+      GROUP BY week_start
+      ORDER BY week_start
     `,
   )
-  return rows.map((r) => ({ day: r.day, tokens: r.tokens, usd: Math.round(r.usd * 100) / 100 }))
+  return rows.map((r) => ({ week_start: r.week_start, tokens: r.tokens, usd: Math.round(r.usd * 100) / 100 }))
 }
 
 /** Returns 7 k-token values, oldest first. Missing days are filled with 0. */

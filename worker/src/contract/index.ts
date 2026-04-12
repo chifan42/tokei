@@ -46,8 +46,8 @@ export const summaryResponseSchema = z.object({
     ),
   }),
   sparkline_7d: z.array(z.number().int()).length(7),
-  monthly_trend: z.array(z.object({
-    day: z.string(),
+  weekly_trend: z.array(z.object({
+    week_start: z.string(),
     tokens: z.number().int(),
     usd: z.number(),
   })),
