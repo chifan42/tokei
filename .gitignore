@@ -43,3 +43,5 @@ firmware/include/config.h
 docs/superpowers/
 pnpm-workspace.yaml
 /package.json
+fixtures/
+pnpm-lock.yaml
