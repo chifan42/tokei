@@ -148,7 +148,7 @@ function render(d) {
       '</div>' +
       '<div class="tool-usd">$' + t.usd.toFixed(2) + '</div>' +
       '<div class="spark" id="spark-' + t.name + '"></div>'
-    toolsEl.appendChild(div)
+    todayEl.appendChild(div)
     if (t.sparkline_7d) renderSpark('spark-' + t.name, t.sparkline_7d)
   }
 
