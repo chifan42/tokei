@@ -224,29 +224,27 @@ void uiRender(const TokeiSummary& s,
     int pad_y = 8;
     int spark_bar_h = 22;
 
-    // Layout: name (top-left) + number (below, right-aligned) + sparkline (bottom of row)
-    // 87px per row: name y+6, number y+24, sparkline at row bottom
+    // Same-line layout: name (16px left) + number (20px right), sparkline below
     for (uint8_t i = 0; i < s.tool_count; i++) {
         int ry = i * row_h;
 
-        // Tool name (top-left)
+        // Tool name (left) and number (right) on the same line
         lv_obj_t* name = lv_label_create(right);
         lv_label_set_text(name, displayName(s.tools[i].name));
         lv_obj_set_style_text_font(name, &lv_font_montserrat_16, 0);
-        lv_obj_set_pos(name, pad_x, ry + 6);
+        lv_obj_set_pos(name, pad_x, ry + 10);
 
-        // Token number (below name, right-aligned)
         char val[16];
         formatCompact(s.tools[i].today_tokens, val, sizeof(val));
         lv_obj_t* val_lbl = lv_label_create(right);
         lv_label_set_text(val_lbl, val);
         lv_obj_set_style_text_font(val_lbl, &lv_font_montserrat_20, 0);
-        lv_obj_set_width(val_lbl, 221);
+        lv_obj_set_width(val_lbl, 100);
         lv_obj_set_style_text_align(val_lbl, LV_TEXT_ALIGN_RIGHT, 0);
-        lv_obj_set_pos(val_lbl, pad_x, ry + 24);
+        lv_obj_set_pos(val_lbl, 241 - pad_x - 100, ry + 8);
 
-        // Mini sparkline (fixed distance below number, not anchored to row bottom)
-        int spark_y = ry + 50;
+        // Mini sparkline below the name+number line
+        int spark_y = ry + 34;
         int ts_max = 1;
         for (int j = 0; j < 7; j++) {
             if (s.tools[i].sparkline_7d[j] > ts_max)
