@@ -135,3 +135,8 @@ Token costs are computed using the [LiteLLM model price table](https://github.co
 ## License
 
 MIT
+
+## Preview
+
+<img width="854" height="715" alt="image" src="https://github.com/user-attachments/assets/97fb86e1-15ca-4326-8754-0f32aee0dd18" />
+
